@@ -5,31 +5,35 @@
 // The class here is then constructed to instantiate the design.
 // See the Verilator manual for examples.
 
-#ifndef VERILATED_VHEX7SEG_H_
-#define VERILATED_VHEX7SEG_H_  // guard
+#ifndef VERILATED_VCOLLATZ_H_
+#define VERILATED_VCOLLATZ_H_  // guard
 
 #include "verilated.h"
 
-class Vhex7seg__Syms;
-class Vhex7seg___024root;
+class Vcollatz__Syms;
+class Vcollatz___024root;
+class VerilatedVcdC;
 
 // This class is the main interface to the Verilated model
-class alignas(VL_CACHE_LINE_BYTES) Vhex7seg VL_NOT_FINAL : public VerilatedModel {
+class alignas(VL_CACHE_LINE_BYTES) Vcollatz VL_NOT_FINAL : public VerilatedModel {
   private:
     // Symbol table holding complete model state (owned by this class)
-    Vhex7seg__Syms* const vlSymsp;
+    Vcollatz__Syms* const vlSymsp;
 
   public:
 
     // CONSTEXPR CAPABILITIES
     // Verilated with --trace?
-    static constexpr bool traceCapable = false;
+    static constexpr bool traceCapable = true;
 
     // PORTS
     // The application code writes and reads these signals to
     // propagate new values into/out from the Verilated model.
-    VL_IN8(&a,3,0);
-    VL_OUT8(&y,6,0);
+    VL_IN8(&clk,0,0);
+    VL_IN8(&go,0,0);
+    VL_OUT8(&done,0,0);
+    VL_IN(&n,31,0);
+    VL_OUT(&dout,31,0);
 
     // CELLS
     // Public to allow access to /* verilator public */ items.
@@ -37,19 +41,19 @@ class alignas(VL_CACHE_LINE_BYTES) Vhex7seg VL_NOT_FINAL : public VerilatedModel
 
     // Root instance pointer to allow access to model internals,
     // including inlined /* verilator public_flat_* */ items.
-    Vhex7seg___024root* const rootp;
+    Vcollatz___024root* const rootp;
 
     // CONSTRUCTORS
     /// Construct the model; called by application code
     /// If contextp is null, then the model will use the default global context
     /// If name is "", then makes a wrapper with a
     /// single model invisible with respect to DPI scope names.
-    explicit Vhex7seg(VerilatedContext* contextp, const char* name = "TOP");
-    explicit Vhex7seg(const char* name = "TOP");
+    explicit Vcollatz(VerilatedContext* contextp, const char* name = "TOP");
+    explicit Vcollatz(const char* name = "TOP");
     /// Destroy the model; called (often implicitly) by application code
-    virtual ~Vhex7seg();
+    virtual ~Vcollatz();
   private:
-    VL_UNCOPYABLE(Vhex7seg);  ///< Copying not allowed
+    VL_UNCOPYABLE(Vcollatz);  ///< Copying not allowed
 
   public:
     // API METHODS
@@ -81,6 +85,7 @@ class alignas(VL_CACHE_LINE_BYTES) Vhex7seg VL_NOT_FINAL : public VerilatedModel
     /// Re-init after cloning the model at the process level (e.g. fork in Linux)
     /// Re-allocate necessary resources. Called after cloning.
     void atClone() const;
+    std::unique_ptr<VerilatedTraceConfig> traceConfig() const override final;
   private:
     // Internal functions - trace registration
     void traceBaseModel(VerilatedTraceBaseC* tfp, int levels, int options);

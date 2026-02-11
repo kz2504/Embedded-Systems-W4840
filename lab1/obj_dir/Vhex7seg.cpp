@@ -65,7 +65,7 @@ void Vhex7seg::eval_step() {
 bool Vhex7seg::eventsPending() { return false; }
 
 uint64_t Vhex7seg::nextTimeSlot() {
-    VL_FATAL_MT(__FILE__, __LINE__, "", "%Error: No delays in the design");
+    VL_FATAL_MT(__FILE__, __LINE__, "", "No delays in the design");
     return 0;
 }
 
@@ -94,11 +94,4 @@ unsigned Vhex7seg::threads() const { return 1; }
 void Vhex7seg::prepareClone() const { contextp()->prepareClone(); }
 void Vhex7seg::atClone() const {
     contextp()->threadPoolpOnClone();
-}
-
-//============================================================
-// Trace configuration
-
-VL_ATTR_COLD void Vhex7seg::trace(VerilatedVcdC* tfp, int levels, int options) {
-    vl_fatal(__FILE__, __LINE__, __FILE__,"'Vhex7seg::trace()' called on model that was Verilated without --trace option");
 }

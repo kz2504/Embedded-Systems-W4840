@@ -17,7 +17,7 @@
 #include "Vhex7seg___024root.h"
 
 // SYMS CLASS (contains all model state)
-class alignas(VL_CACHE_LINE_BYTES)Vhex7seg__Syms final : public VerilatedSyms {
+class alignas(VL_CACHE_LINE_BYTES) Vhex7seg__Syms final : public VerilatedSyms {
   public:
     // INTERNAL STATE
     Vhex7seg* const __Vm_modelp;
@@ -32,7 +32,7 @@ class alignas(VL_CACHE_LINE_BYTES)Vhex7seg__Syms final : public VerilatedSyms {
     ~Vhex7seg__Syms();
 
     // METHODS
-    const char* name() { return TOP.name(); }
+    const char* name() const { return TOP.vlNamep; }
 };
 
 #endif  // guard
