@@ -13,43 +13,44 @@ VM_TIMING = 0
 VM_COVERAGE = 0
 # Parallel builds?  0/1 (from --output-split)
 VM_PARALLEL_BUILDS = 0
-# Tracing output mode?  0/1 (from --trace-fst/--trace-saif/--trace-vcd)
+# Tracing output mode?  0/1 (from --trace/--trace-fst)
 VM_TRACE = 1
+# Tracing output mode in VCD format?  0/1 (from --trace)
+VM_TRACE_VCD = 1
 # Tracing output mode in FST format?  0/1 (from --trace-fst)
 VM_TRACE_FST = 0
-# Tracing output mode in SAIF format?  0/1 (from --trace-saif)
-VM_TRACE_SAIF = 0
-# Tracing output mode in VCD format?  0/1 (from --trace-vcd)
-VM_TRACE_VCD = 1
 
 ### Object file lists...
 # Generated module classes, fast-path, compile with highest optimization
 VM_CLASSES_FAST += \
-  Vrange \
-  Vrange___024root__0 \
+	Vrange \
+	Vrange___024root__DepSet_h17da3e60__0 \
+	Vrange___024root__DepSet_h4a47ef42__0 \
 
 # Generated module classes, non-fast-path, compile with low/medium optimization
 VM_CLASSES_SLOW += \
-  Vrange___024root__Slow \
-  Vrange___024root__0__Slow \
+	Vrange___024root__Slow \
+	Vrange___024root__DepSet_h17da3e60__0__Slow \
+	Vrange___024root__DepSet_h4a47ef42__0__Slow \
 
 # Generated support classes, fast-path, compile with highest optimization
 VM_SUPPORT_FAST += \
-  Vrange__Trace__0 \
+	Vrange__Trace__0 \
 
 # Generated support classes, non-fast-path, compile with low/medium optimization
 VM_SUPPORT_SLOW += \
-  Vrange__Syms__Slow \
-  Vrange__Trace__0__Slow \
-  Vrange__TraceDecls__0__Slow \
+	Vrange__Syms \
+	Vrange__Trace__0__Slow \
+	Vrange__TraceDecls__0__Slow \
 
 # Global classes, need linked once per executable, fast-path, compile with highest optimization
 VM_GLOBAL_FAST += \
-  verilated \
-  verilated_vcd_c \
-  verilated_threads \
+	verilated \
+	verilated_vcd_c \
+	verilated_threads \
 
 # Global classes, need linked once per executable, non-fast-path, compile with low/medium optimization
 VM_GLOBAL_SLOW += \
+
 
 # Verilated -*- Makefile -*-

@@ -2,8 +2,8 @@
 //
 // Spring 2023
 //
-// By: <your name here>
-// Uni: <your uni here>
+// By: Leen Alshorafa, Kuan Zhang
+// Uni: laa2202, kz2504
 
 module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
 	     
@@ -30,6 +30,11 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
 
    // Replace this comment and the code below it with your own code;
    // The code below is merely to suppress Verilator lint warnings
+   always_ff @(posedge clk) begin
+      n <= SW;
+      
+   end
+
    assign HEX0 = {KEY[2:0], KEY[3:0]};
    assign HEX1 = SW[6:0];
    assign HEX2 = {(n == 12'b0), (count == 16'b0) ^ KEY[1],

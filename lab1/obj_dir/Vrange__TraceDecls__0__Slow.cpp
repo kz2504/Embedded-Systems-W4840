@@ -1,6 +1,5 @@
 // Verilated -*- C++ -*-
 // DESCRIPTION: Verilator output: Tracing declarations
-
 #include "verilated_vcd_c.h"
 
 
