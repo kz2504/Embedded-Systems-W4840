@@ -5,20 +5,20 @@
 // The class here is then constructed to instantiate the design.
 // See the Verilator manual for examples.
 
-#ifndef VERILATED_VCOLLATZ_H_
-#define VERILATED_VCOLLATZ_H_  // guard
+#ifndef VERILATED_VRANGE_H_
+#define VERILATED_VRANGE_H_  // guard
 
 #include "verilated.h"
 
-class Vcollatz__Syms;
-class Vcollatz___024root;
+class Vrange__Syms;
+class Vrange___024root;
 class VerilatedVcdC;
 
 // This class is the main interface to the Verilated model
-class alignas(VL_CACHE_LINE_BYTES) Vcollatz VL_NOT_FINAL : public VerilatedModel {
+class alignas(VL_CACHE_LINE_BYTES) Vrange VL_NOT_FINAL : public VerilatedModel {
   private:
     // Symbol table holding complete model state (owned by this class)
-    Vcollatz__Syms* const vlSymsp;
+    Vrange__Syms* const vlSymsp;
 
   public:
 
@@ -32,8 +32,8 @@ class alignas(VL_CACHE_LINE_BYTES) Vcollatz VL_NOT_FINAL : public VerilatedModel
     VL_IN8(&clk,0,0);
     VL_IN8(&go,0,0);
     VL_OUT8(&done,0,0);
-    VL_IN(&n,31,0);
-    VL_OUT(&dout,31,0);
+    VL_OUT16(&count,15,0);
+    VL_IN(&start,31,0);
 
     // CELLS
     // Public to allow access to /* verilator public */ items.
@@ -41,19 +41,19 @@ class alignas(VL_CACHE_LINE_BYTES) Vcollatz VL_NOT_FINAL : public VerilatedModel
 
     // Root instance pointer to allow access to model internals,
     // including inlined /* verilator public_flat_* */ items.
-    Vcollatz___024root* const rootp;
+    Vrange___024root* const rootp;
 
     // CONSTRUCTORS
     /// Construct the model; called by application code
     /// If contextp is null, then the model will use the default global context
     /// If name is "", then makes a wrapper with a
     /// single model invisible with respect to DPI scope names.
-    explicit Vcollatz(VerilatedContext* contextp, const char* name = "TOP");
-    explicit Vcollatz(const char* name = "TOP");
+    explicit Vrange(VerilatedContext* contextp, const char* name = "TOP");
+    explicit Vrange(const char* name = "TOP");
     /// Destroy the model; called (often implicitly) by application code
-    virtual ~Vcollatz();
+    virtual ~Vrange();
   private:
-    VL_UNCOPYABLE(Vcollatz);  ///< Copying not allowed
+    VL_UNCOPYABLE(Vrange);  ///< Copying not allowed
 
   public:
     // API METHODS

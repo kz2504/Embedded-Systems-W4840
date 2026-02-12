@@ -30,7 +30,8 @@ module collatz( input logic         clk,   // Clock
          end else begin
             busy <= 1'b1;
             done <= 1'b0;
-         end
+         end 
+
       end else if (busy) begin
          dout <= next;
          if (next == 32'd1) begin

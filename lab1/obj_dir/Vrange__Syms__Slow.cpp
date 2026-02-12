@@ -1,9 +1,9 @@
 // Verilated -*- C++ -*-
 // DESCRIPTION: Verilator output: Symbol table implementation internals
 
-#include "Vcollatz__pch.h"
+#include "Vrange__pch.h"
 
-Vcollatz__Syms::Vcollatz__Syms(VerilatedContext* contextp, const char* namep, Vcollatz* modelp)
+Vrange__Syms::Vrange__Syms(VerilatedContext* contextp, const char* namep, Vrange* modelp)
     : VerilatedSyms{contextp}
     // Setup internal state of the Syms class
     , __Vm_modelp{modelp}
@@ -11,7 +11,7 @@ Vcollatz__Syms::Vcollatz__Syms(VerilatedContext* contextp, const char* namep, Vc
     , TOP{this, namep}
 {
     // Check resources
-    Verilated::stackCheck(190);
+    Verilated::stackCheck(278);
     // Setup sub module instances
     // Configure time unit / time precision
     _vm_contextp__->timeunit(-12);
@@ -22,7 +22,7 @@ Vcollatz__Syms::Vcollatz__Syms(VerilatedContext* contextp, const char* namep, Vc
     // Setup scopes
 }
 
-Vcollatz__Syms::~Vcollatz__Syms() {
+Vrange__Syms::~Vrange__Syms() {
     // Tear down scopes
     // Tear down sub module instances
 }

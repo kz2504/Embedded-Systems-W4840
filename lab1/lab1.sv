@@ -25,7 +25,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    
    assign clk = CLOCK_50;
  
-   range #(256, 8) // RAM_WORDS = 256, RAM_ADDR_BITS = 8)
+   range #(16, 4) // RAM_WORDS = 256, RAM_ADDR_BITS = 8)
          r ( .* ); // Connect everything with matching names
 
    logic running; 
@@ -54,10 +54,9 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
       hex3 = '0; hex4 = '0; hex5 = '0;
    end
 
-   always_ff @(posedge clk) begin
+   always_ff @(negedge clk) begin
       go <= 1'b0;
       if (running == 1'b0) begin
-         LEDR <= '0;
          n <= {2'b00, SW};
          if (KEY[3] == 1'b0) begin
             if (key_latched == 1'b0) begin
@@ -69,6 +68,8 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
          end else begin
             key_latched <= 1'b0;
          end
+      end else if (running == 1'b1) begin
+         LEDR <= '0;
       end else if (done == 1'b1) begin
          running <= 1'b0;
          start <= 32'b0;

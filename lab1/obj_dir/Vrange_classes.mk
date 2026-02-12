@@ -2,7 +2,7 @@
 # DESCRIPTION: Verilator output: Make include file with class lists
 #
 # This file lists generated Verilated files, for including in higher level makefiles.
-# See Vcollatz.mk for the caller.
+# See Vrange.mk for the caller.
 
 ### Switches...
 # C11 constructs required?  0/1 (always on now)
@@ -25,23 +25,23 @@ VM_TRACE_VCD = 1
 ### Object file lists...
 # Generated module classes, fast-path, compile with highest optimization
 VM_CLASSES_FAST += \
-  Vcollatz \
-  Vcollatz___024root__0 \
+  Vrange \
+  Vrange___024root__0 \
 
 # Generated module classes, non-fast-path, compile with low/medium optimization
 VM_CLASSES_SLOW += \
-  Vcollatz___024root__Slow \
-  Vcollatz___024root__0__Slow \
+  Vrange___024root__Slow \
+  Vrange___024root__0__Slow \
 
 # Generated support classes, fast-path, compile with highest optimization
 VM_SUPPORT_FAST += \
-  Vcollatz__Trace__0 \
+  Vrange__Trace__0 \
 
 # Generated support classes, non-fast-path, compile with low/medium optimization
 VM_SUPPORT_SLOW += \
-  Vcollatz__Syms__Slow \
-  Vcollatz__Trace__0__Slow \
-  Vcollatz__TraceDecls__0__Slow \
+  Vrange__Syms__Slow \
+  Vrange__Trace__0__Slow \
+  Vrange__TraceDecls__0__Slow \
 
 # Global classes, need linked once per executable, fast-path, compile with highest optimization
 VM_GLOBAL_FAST += \
