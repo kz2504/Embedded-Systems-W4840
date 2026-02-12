@@ -36,7 +36,7 @@ int main(int argc, const char ** argv, const char ** env) {
     if (dut->done) break;
   }
 
-  for (int i = 0 ; i < 16 ; i++) {
+  for (int i = 0 ; i < 16; i++) {
     dut->clk = 0;
     dut->start = i;
     time += 10;

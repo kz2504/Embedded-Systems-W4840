@@ -33,17 +33,16 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    logic running = 0; 
    logic key_latched = 0;
    logic [6:0] hex0, hex1, hex2, hex3, hex4, hex5 = '0;
-   logic [11:0] n_display = '0;
 
    hex7seg h5 (n[11:8], hex5);
    hex7seg h4 (n[7:4], hex4);
    hex7seg h3 (n[3:0], hex3);
 
-   hex7seg h2 (n_display[11:8], hex2);
-   hex7seg h1 (n_display[7:4], hex1);
-   hex7seg h0 (n_display[3:0], hex0);
+   hex7seg h2 (count[11:8], hex2);
+   hex7seg h1 (count[7:4], hex1);
+   hex7seg h0 (count[3:0], hex0);
 
-   always_ff @(negedge clk) begin
+   always_ff @(posedge clk) begin
       go <= 1'b0;
       if (running == 1'b0) begin
          LEDR <= '0;
@@ -64,12 +63,6 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
          LEDR <= '1;
       end
    end
-
-   always_ff @(posedge clk) begin
-      if (done == 1'b1) begin
-         n_display <= count[11:0];
-      end 
-   end 
 
    assign HEX0 = hex0;
    assign HEX1 = hex1;
