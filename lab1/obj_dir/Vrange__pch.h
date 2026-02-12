@@ -3,10 +3,10 @@
 //
 // Internal details; most user sources do not need this header,
 // unless using verilator public meta comments.
-// Suggest use Vhex7seg.h instead.
+// Suggest use Vrange.h instead.
 
-#ifndef VERILATED_VHEX7SEG__PCH_H_
-#define VERILATED_VHEX7SEG__PCH_H_  // guard
+#ifndef VERILATED_VRANGE__PCH_H_
+#define VERILATED_VRANGE__PCH_H_  // guard
 
 // GCC and Clang only will precompile headers (PCH) for the first header.
 // So, make sure this is the one and only PCH.
@@ -19,8 +19,8 @@
 
 #include "verilated.h"
 
-#include "Vhex7seg__Syms.h"
-#include "Vhex7seg.h"
+#include "Vrange__Syms.h"
+#include "Vrange.h"
 
 // Additional include files added using '--compiler-include'
 

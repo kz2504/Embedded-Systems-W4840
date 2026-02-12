@@ -22,67 +22,58 @@ module range
 	      .dout());
 
    logic [RAM_ADDR_BITS - 1:0] 	 num;         // The RAM address to write
-   logic 			 running = 0; // True during the iterations
-
-   logic [2:0] state = 3'b0;
-   logic [2:0] next_state = 3'b0;
-
-   always_comb begin
-      we = 1'b0;
-      case (state)
-         3'b000: begin //Idle
-            if (go == 1'b1) begin
-               next_state = 3'b001;
-            end else begin
-               next_state = state;
-            end
-         end
-         3'b001: begin //Go, set cgo
-            next_state = 3'b010; 
-         end
-         3'b010: begin //Reset cgo
-            next_state = 3'b011;
-         end
-         3'b011: begin //Increment din, wait for cdone
-            if (cdone == 1'b1) begin
-               next_state = 3'b100;
-               we = 1'b1;
-            end else begin
-               next_state = state;
-            end
-         end
-         3'b100: begin 
-            we = 1'b0;
-         end
-
-      endcase
-   end 
+   logic 			 running; // True during the iterations
 
    /* Replace this comment and the code below with your solution,
       which should generate running, done, cgo, n, num, we, and din */
+   logic reset_we;
+   logic reset_done;
+   logic creset;
+   logic [RAM_ADDR_BITS:0] wr_count;
+
+   assign we = !reset_we ? cdone : 1'b0;
+   assign done = !reset_done ? (wr_count == (RAM_ADDR_BITS + 1)'(RAM_WORDS)) : 1'b0;
+   
    always_ff @(posedge clk) begin
-      case (next_state)
-      3'b001: begin
+      if (go == 1'b1) begin
          running <= 1'b1;
          n <= start;
          num <= '0;
-         din <= 1'b1;
+         din <= 16'b1;
          cgo <= 1'b1;
-      end
-      3'b010: begin
+         wr_count <= '0;
+         reset_done <= 1'b0;
+         if (cgo == 1'b1) begin
+            cgo <= 1'b0;
+         end
+      end else if (done == 1'b1) begin
+         reset_done <= 1'b1;
+         running <= 1'b0;
+      end else if ((running == 1'b1) && (cdone == 1'b0)) begin
+         reset_we <= 1'b0;
          cgo <= 1'b0;
-      end 
-      3'b011: begin
          din <= din + 1;
+      end else if ((running == 1'b1) && (cdone == 1'b1)) begin
+         if (wr_count != (RAM_ADDR_BITS + 1)'(RAM_WORDS - 1)) begin
+            cgo <= 1'b1;
+         end
+         if (cgo == 1'b1) begin
+            cgo <= 1'b0;
+         end
+         if (creset == 1'b0) begin
+            num <= num + 1;
+            reset_we <= 1'b1;
+            creset <= 1'b1;
+            n <= n + 1;
+            wr_count <= wr_count + 1;
+         end else begin
+            din <= 16'b1;
+            creset <= 1'b0;
+         end
       end
-      3'b100: begin
-         cgo <= 1'b1;
-      end 
-      endcase 
    end
-   state <= next_state;
    /* Replace this comment and the code above with your solution */
-
+   
    logic 			 we;                    // Write din to addr
    logic [15:0] 		 din;                   // Data to write
    logic [15:0] 		 mem[RAM_WORDS - 1:0];  // The RAM itself

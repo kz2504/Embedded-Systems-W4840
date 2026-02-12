@@ -1,9 +1,9 @@
 // Verilated -*- C++ -*-
 // DESCRIPTION: Verilator output: Symbol table implementation internals
 
-#include "Vhex7seg__pch.h"
+#include "Vrange__pch.h"
 
-Vhex7seg__Syms::Vhex7seg__Syms(VerilatedContext* contextp, const char* namep, Vhex7seg* modelp)
+Vrange__Syms::Vrange__Syms(VerilatedContext* contextp, const char* namep, Vrange* modelp)
     : VerilatedSyms{contextp}
     // Setup internal state of the Syms class
     , __Vm_modelp{modelp}
@@ -11,7 +11,7 @@ Vhex7seg__Syms::Vhex7seg__Syms(VerilatedContext* contextp, const char* namep, Vh
     , TOP{this, namep}
 {
     // Check resources
-    Verilated::stackCheck(128);
+    Verilated::stackCheck(280);
     // Setup sub module instances
     // Configure time unit / time precision
     _vm_contextp__->timeunit(-12);
@@ -22,7 +22,7 @@ Vhex7seg__Syms::Vhex7seg__Syms(VerilatedContext* contextp, const char* namep, Vh
     // Setup scopes
 }
 
-Vhex7seg__Syms::~Vhex7seg__Syms() {
+Vrange__Syms::~Vrange__Syms() {
     // Tear down scopes
     // Tear down sub module instances
 }

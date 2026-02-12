@@ -1,10 +1,8 @@
-Vhex7seg__ALL.o: Vhex7seg__ALL.cpp Vhex7seg.cpp Vhex7seg__pch.h \
+range.o: ../range.cpp Vrange.h \
   /opt/homebrew/Cellar/verilator/5.044/share/verilator/include/verilated.h \
   /opt/homebrew/Cellar/verilator/5.044/share/verilator/include/verilated_config.h \
   /opt/homebrew/Cellar/verilator/5.044/share/verilator/include/verilatedos.h \
   /opt/homebrew/Cellar/verilator/5.044/share/verilator/include/verilated_types.h \
   /opt/homebrew/Cellar/verilator/5.044/share/verilator/include/verilated_funcs.h \
-  Vhex7seg__Syms.h Vhex7seg.h Vhex7seg___024root.h \
-  Vhex7seg___024root__0.cpp Vhex7seg__ConstPool__0__Slow.cpp \
-  Vhex7seg___024root__Slow.cpp Vhex7seg___024root__0__Slow.cpp \
-  Vhex7seg__Syms__Slow.cpp
+  /opt/homebrew/Cellar/verilator/5.044/share/verilator/include/verilated_vcd_c.h \
+  /opt/homebrew/Cellar/verilator/5.044/share/verilator/include/verilated_trace.h
