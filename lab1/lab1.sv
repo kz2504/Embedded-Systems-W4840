@@ -30,12 +30,12 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
 
    // Replace this comment and the code below it with your own code;
    // The code below is merely to suppress Verilator lint warnings
-   logic running; 
+   logic running = 0; 
    logic [31:0] DEBOUNCE_CYCLES = 32'h100000; //~21 ms debounce timer
-   logic [31:0] debounce_counter;
-   logic key_latched;
-   logic [6:0] hex0, hex1, hex2, hex3, hex4, hex5;
-   logic [11:0] n_display;
+   logic [31:0] debounce_counter = '0;
+   logic key_latched = 0;
+   logic [6:0] hex0, hex1, hex2, hex3, hex4, hex5 = '0;
+   logic [11:0] n_display = '0;
 
    hex7seg h5 (n[11:8], hex5);
    hex7seg h4 (n[7:4], hex4);
