@@ -11,7 +11,7 @@ Vrange__Syms::Vrange__Syms(VerilatedContext* contextp, const char* namep, Vrange
     , TOP{this, namep}
 {
     // Check resources
-    Verilated::stackCheck(278);
+    Verilated::stackCheck(286);
     // Setup sub module instances
     // Configure time unit / time precision
     _vm_contextp__->timeunit(-12);

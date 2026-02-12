@@ -22,68 +22,76 @@ module range
 	      .dout());
 
    logic [RAM_ADDR_BITS - 1:0] 	 num;         // The RAM address to write
-   logic 			 running; // True during the iterations
+   //logic 			 running; // True during the iterations
 
+   typedef enum {IDLE, RESET_CGO, RUNNING, DONE} State;
+   State state;
    logic reset_we;
-   logic reset_done;
-   logic creset;
-   logic [RAM_ADDR_BITS:0] wr_count;
-
-   assign we = !reset_we ? cdone : 1'b0;
-   assign done = !reset_done ? (wr_count == (RAM_ADDR_BITS + 1)'(RAM_WORDS)) : 1'b0;
+   logic [RAM_ADDR_BITS:0] write_counter;
 
    initial begin
-      running = 1'b0;
+      //running = 1'b0;
       cgo = 1'b0;
       n = 32'd0;
       num = '0;
 
       reset_we = 1'b0;
-      reset_done = 1'b0;
-      creset = 1'b0;
-      wr_count = '0;
+      write_counter = '0;
 
       din = 16'd0;
       count = 16'd0;
+      state = IDLE;
    end
+
+   assign we = !reset_we ? cdone : 1'b0;
    
    always_ff @(posedge clk) begin
-      if (go == 1'b1) begin
-         running <= 1'b1;
-         n <= start;
-         num <= '0;
-         din <= 16'b1;
-         cgo <= 1'b1;
-         wr_count <= '0;
-         reset_done <= 1'b0;
-         if (cgo == 1'b1) begin
-            cgo <= 1'b0;
+      case (state) 
+         IDLE: begin
+            if (go) begin
+               state <= RESET_CGO;
+               //running <= 1'b1; //Set running
+               n <= start; //Load start into n
+               num <= '0; //Reset num/RAM addr
+               din <= 16'b1; //Set din to 1
+               cgo <= 1'b1; //Begin cgo pulse
+            end else begin
+               state <= IDLE;
+            end
          end
-      end else if (done == 1'b1) begin
-         reset_done <= 1'b1;
-         running <= 1'b0;
-      end else if ((running == 1'b1) && (cdone == 1'b0)) begin
-         reset_we <= 1'b0;
-         cgo <= 1'b0;
-         din <= din + 1;
-      end else if ((running == 1'b1) && (cdone == 1'b1)) begin
-         if (wr_count != (RAM_ADDR_BITS + 1)'(RAM_WORDS - 1)) begin
-            cgo <= 1'b1;
+         RESET_CGO: begin
+            din <= 16'b1; //Ensure din at 1
+            cgo <= 1'b0; //End cgo pulse
+            reset_we <= 1'b0; //Arm we
+            state <= RUNNING;
          end
-         if (cgo == 1'b1) begin
-            cgo <= 1'b0;
+         RUNNING: begin
+            din <= din + 1'b1;
+            if (cdone) begin
+               num <= num + 1'b1; //Increment write address
+               reset_we <= 1'b1; //Reset we 
+               write_counter <= write_counter + 1'b1;
+               if (write_counter < RAM_WORDS - 1) begin
+                  n <= n + 1'b1; //Increment n
+                  cgo <= 1'b1; //Start collatz again
+                  state <= RESET_CGO;
+               end else begin
+                  state <= DONE;
+                  write_counter <= '0; 
+                  //running <= 1'b0; //Reset running
+                  done <= 1'b1; //Raise done
+               end
+            end else begin
+               state <= RUNNING;
+            end
+         end 
+         DONE: begin
+            done <= 1'b0; //End done pulse
+            state <= IDLE; //Go back to IDLE
          end
-         if (creset == 1'b0) begin
-            num <= num + 1;
-            reset_we <= 1'b1;
-            creset <= 1'b1;
-            n <= n + 1;
-            wr_count <= wr_count + 1;
-         end else begin
-            din <= 16'b1;
-            creset <= 1'b0;
-         end
-      end
+         
+         default: state <= IDLE;
+      endcase
    end
    
    logic 			 we;                    // Write din to addr

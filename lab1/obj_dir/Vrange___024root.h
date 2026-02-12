@@ -20,11 +20,8 @@ class alignas(VL_CACHE_LINE_BYTES) Vrange___024root final {
     CData/*0:0*/ range__DOT__cgo;
     CData/*0:0*/ range__DOT__cdone;
     CData/*3:0*/ range__DOT__num;
-    CData/*0:0*/ range__DOT__running;
     CData/*0:0*/ range__DOT__reset_we;
-    CData/*0:0*/ range__DOT__reset_done;
-    CData/*0:0*/ range__DOT__creset;
-    CData/*4:0*/ range__DOT__wr_count;
+    CData/*4:0*/ range__DOT__write_counter;
     CData/*0:0*/ range__DOT__we;
     CData/*3:0*/ range__DOT__addr;
     CData/*0:0*/ range__DOT__c1__DOT__busy;
@@ -35,6 +32,7 @@ class alignas(VL_CACHE_LINE_BYTES) Vrange___024root final {
     SData/*15:0*/ range__DOT__din;
     VL_IN(start,31,0);
     IData/*31:0*/ range__DOT__n;
+    IData/*31:0*/ range__DOT__state;
     IData/*31:0*/ range__DOT__c1__DOT__dout;
     IData/*31:0*/ range__DOT__c1__DOT__next;
     IData/*31:0*/ __VactIterCount;

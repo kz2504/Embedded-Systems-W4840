@@ -29,6 +29,14 @@ VL_ATTR_COLD void Vrange___024root___eval_initial__TOP(Vrange___024root* vlSelf)
     Vrange__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     auto& vlSelfRef = std::ref(*vlSelf).get();
     // Body
+    vlSelfRef.range__DOT__cgo = 0U;
+    vlSelfRef.range__DOT__n = 0U;
+    vlSelfRef.range__DOT__num = 0U;
+    vlSelfRef.range__DOT__reset_we = 0U;
+    vlSelfRef.range__DOT__write_counter = 0U;
+    vlSelfRef.range__DOT__din = 0U;
+    vlSelfRef.count = 0U;
+    vlSelfRef.range__DOT__state = 0U;
     vlSelfRef.range__DOT__c1__DOT__busy = 0U;
     vlSelfRef.range__DOT__c1__DOT__dout = 0U;
     vlSelfRef.range__DOT__cdone = 0U;
@@ -121,8 +129,6 @@ VL_ATTR_COLD void Vrange___024root___stl_sequent__TOP__0(Vrange___024root* vlSel
                                                + ((IData)(3U) 
                                                   * vlSelfRef.range__DOT__c1__DOT__dout))
                                             : VL_SHIFTR_III(32,32,32, vlSelfRef.range__DOT__c1__DOT__dout, 1U));
-    vlSelfRef.done = ((~ (IData)(vlSelfRef.range__DOT__reset_done)) 
-                      & (0x10U == (IData)(vlSelfRef.range__DOT__wr_count)));
     vlSelfRef.range__DOT__we = ((~ (IData)(vlSelfRef.range__DOT__reset_we)) 
                                 & (IData)(vlSelfRef.range__DOT__cdone));
     vlSelfRef.range__DOT__addr = (0x0000000fU & ((IData)(vlSelfRef.range__DOT__we)
@@ -210,11 +216,9 @@ VL_ATTR_COLD void Vrange___024root___ctor_var_reset(Vrange___024root* vlSelf) {
     vlSelf->range__DOT__cdone = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 12581039484530685089ull);
     vlSelf->range__DOT__n = VL_SCOPED_RAND_RESET_I(32, __VscopeHash, 2931250089763635780ull);
     vlSelf->range__DOT__num = VL_SCOPED_RAND_RESET_I(4, __VscopeHash, 2799255514935540747ull);
-    vlSelf->range__DOT__running = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 17657834207446911077ull);
+    vlSelf->range__DOT__state = 0;
     vlSelf->range__DOT__reset_we = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 5434001327574429999ull);
-    vlSelf->range__DOT__reset_done = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 1575717493683232445ull);
-    vlSelf->range__DOT__creset = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 17761106920509890009ull);
-    vlSelf->range__DOT__wr_count = VL_SCOPED_RAND_RESET_I(5, __VscopeHash, 283572128262436962ull);
+    vlSelf->range__DOT__write_counter = VL_SCOPED_RAND_RESET_I(5, __VscopeHash, 9405270263262822162ull);
     vlSelf->range__DOT__we = VL_SCOPED_RAND_RESET_I(1, __VscopeHash, 15380956425345825180ull);
     vlSelf->range__DOT__din = VL_SCOPED_RAND_RESET_I(16, __VscopeHash, 1814400464142951486ull);
     for (int __Vi0 = 0; __Vi0 < 16; ++__Vi0) {
