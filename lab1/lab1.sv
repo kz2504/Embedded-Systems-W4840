@@ -54,7 +54,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
       hex3 = '0; hex4 = '0; hex5 = '0;
    end
 
-   always_ff @(posedge clk) begin
+   always_ff @(negedge clk) begin
       go <= 1'b0;
       if (running == 1'b0) begin
          LEDR <= '1;
