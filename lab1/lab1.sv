@@ -57,6 +57,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    always_ff @(posedge clk) begin
       go <= 1'b0;
       if (running == 1'b0) begin
+         LEDR <= '1;
          n <= {2'b00, SW};
          if (KEY[3] == 1'b0) begin
             if (key_latched == 1'b0) begin
@@ -70,14 +71,10 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
          end
       end else if (done == 1'b1) begin
          running <= 1'b0;
-      end if (running == 1'b1) begin
-         LEDR <= '0;
-      end else begin
-         LEDR <= '1;
          start <= '0;
+      end else begin
+         LEDR <= '0;
       end
-
-      
    end
 
    assign HEX0 = hex0;

@@ -29,16 +29,6 @@ VL_ATTR_COLD void Vrange___024root___eval_initial__TOP(Vrange___024root* vlSelf)
     Vrange__Syms* const __restrict vlSymsp VL_ATTR_UNUSED = vlSelf->vlSymsp;
     auto& vlSelfRef = std::ref(*vlSelf).get();
     // Body
-    vlSelfRef.range__DOT__running = 0U;
-    vlSelfRef.range__DOT__cgo = 0U;
-    vlSelfRef.range__DOT__n = 0U;
-    vlSelfRef.range__DOT__num = 0U;
-    vlSelfRef.range__DOT__reset_we = 0U;
-    vlSelfRef.range__DOT__reset_done = 0U;
-    vlSelfRef.range__DOT__creset = 0U;
-    vlSelfRef.range__DOT__wr_count = 0U;
-    vlSelfRef.range__DOT__din = 0U;
-    vlSelfRef.count = 0U;
     vlSelfRef.range__DOT__c1__DOT__busy = 0U;
     vlSelfRef.range__DOT__c1__DOT__dout = 0U;
     vlSelfRef.range__DOT__cdone = 0U;
