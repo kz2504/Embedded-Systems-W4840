@@ -78,7 +78,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
          DONE: begin
             LEDR <= '1;
             start <= 32'b0;
-            state <= IDLE;
+            state <= DONE;
          end
       endcase 
    end

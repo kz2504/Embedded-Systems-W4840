@@ -10,7 +10,7 @@ int main(int argc, const char ** argv, const char ** env) {
   if (argc > 1 && argv[1][0] != '+')
     n = atoi(argv[1]);
   else
-    n = 1;
+    n = 7;
 
   Vrange * dut = new Vrange;
   
