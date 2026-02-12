@@ -62,6 +62,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
             n <= {2'b0, SW}; 
             if (KEY[3] == 1'b0) begin
                go <= 1'b1;
+               start <= {20'b0, n};
                state <= LOCKED;
             end
          end
