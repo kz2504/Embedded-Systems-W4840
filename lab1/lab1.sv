@@ -48,9 +48,10 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    always_ff @(negedge clk) begin
       go <= 1'b0;
       if (running == 1'b0) begin
+         LEDR <= '0;
          n[9:0] <= SW;
          n[11:10] <= 2'b0;
-         if (KEY[3] == 1'b0) begin
+         if (KEY[3] == 1'b1) begin
             if (debounce_counter < DEBOUNCE_CYCLES) begin 
                debounce_counter <= debounce_counter + 1;
             end else begin
@@ -68,6 +69,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
       end else if (done == 1'b1) begin
          running <= 1'b0;
          start <= 32'b0;
+         LEDR <= '1;
       end
    end
 
@@ -83,6 +85,5 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    assign HEX3 = hex3;
    assign HEX4 = hex4;
    assign HEX5 = hex5;
-   assign LEDR = SW;
    
 endmodule
