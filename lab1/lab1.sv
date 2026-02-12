@@ -56,7 +56,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    end
    
 
-   always_ff @(negedge clk) begin
+   always_ff @(posedge clk) begin
       case (state)
          IDLE: begin
             n <= {2'b0, SW}; 
