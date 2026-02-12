@@ -24,8 +24,6 @@ module range
    logic [RAM_ADDR_BITS - 1:0] 	 num;         // The RAM address to write
    logic 			 running; // True during the iterations
 
-   /* Replace this comment and the code below with your solution,
-      which should generate running, done, cgo, n, num, we, and din */
    logic reset_we;
    logic reset_done;
    logic creset;
@@ -72,7 +70,6 @@ module range
          end
       end
    end
-   /* Replace this comment and the code above with your solution */
    
    logic 			 we;                    // Write din to addr
    logic [15:0] 		 din;                   // Data to write

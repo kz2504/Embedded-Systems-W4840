@@ -18,7 +18,7 @@ module collatz( input logic         clk,   // Clock
          if (temp == 32'b1) begin
             busy <= 1'b0;
             done <= 1'b1;
-         end 
+         end
       end
    end
 
