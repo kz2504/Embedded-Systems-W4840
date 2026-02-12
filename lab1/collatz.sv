@@ -8,7 +8,6 @@ module collatz( input logic         clk,   // Clock
    logic [31:0] temp = 32'b0;
    assign temp = (dout % 2 == 1) ? 3 * dout + 1 : dout / 2;
 
-   /* Replace this comment and the code below with your solution */
    always_ff @(posedge clk) begin
       if (go == 1'b1) begin
          dout <= n;

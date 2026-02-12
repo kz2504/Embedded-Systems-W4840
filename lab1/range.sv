@@ -24,14 +24,63 @@ module range
    logic [RAM_ADDR_BITS - 1:0] 	 num;         // The RAM address to write
    logic 			 running = 0; // True during the iterations
 
+   logic [2:0] state = 3'b0;
+   logic [2:0] next_state = 3'b0;
+
+   always_comb begin
+      we = 1'b0;
+      case (state)
+         3'b000: begin //Idle
+            if (go == 1'b1) begin
+               next_state = 3'b001;
+            end else begin
+               next_state = state;
+            end
+         end
+         3'b001: begin //Go, set cgo
+            next_state = 3'b010; 
+         end
+         3'b010: begin //Reset cgo
+            next_state = 3'b011;
+         end
+         3'b011: begin //Increment din, wait for cdone
+            if (cdone == 1'b1) begin
+               next_state = 3'b100;
+               we = 1'b1;
+            end else begin
+               next_state = state;
+            end
+         end
+         3'b100: begin 
+            we = 1'b0;
+         end
+
+      endcase
+   end 
+
    /* Replace this comment and the code below with your solution,
       which should generate running, done, cgo, n, num, we, and din */
-   assign done = cdone;
-   assign cgo = go;
-   assign n = start;
-   assign din = 16'h0;
-   assign num = 0;
-   assign we = running;   
+   always_ff @(posedge clk) begin
+      case (next_state)
+      3'b001: begin
+         running <= 1'b1;
+         n <= start;
+         num <= '0;
+         din <= 1'b1;
+         cgo <= 1'b1;
+      end
+      3'b010: begin
+         cgo <= 1'b0;
+      end 
+      3'b011: begin
+         din <= din + 1;
+      end
+      3'b100: begin
+         cgo <= 1'b1;
+      end 
+      endcase 
+   end
+   state <= next_state;
    /* Replace this comment and the code above with your solution */
 
    logic 			 we;                    // Write din to addr
