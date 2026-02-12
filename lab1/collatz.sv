@@ -5,8 +5,7 @@ module collatz( input logic         clk,   // Clock
 		output logic 	    done); // True when dout reaches 1
 
    logic busy;
-   logic [31:0] temp = 32'b0;
-   assign temp = (dout % 2 == 1) ? 3 * dout + 1 : dout / 2;
+   logic [31:0] next;
 
    initial begin
       busy = 1'b0;
@@ -14,18 +13,30 @@ module collatz( input logic         clk,   // Clock
       done = 1'b0;
    end
 
+   always_comb begin
+         if (dout[0] == 1'b1) begin
+            next = (32'b11 * dout) + 32'b1;
+         end else begin 
+            next = dout >> 1;
+         end
+   end
+
    always_ff @(posedge clk) begin
-      if (go == 1'b1) begin
+      if (go) begin
          dout <= n;
-         busy <= 1'b1;
-         done <= 1'b0;
-      end else if ((busy == 1'b1) && (done != 1'b1)) begin 
-         dout <= temp;
-         if (temp == 32'b1) begin
+         if (n == 32'd1) begin
+            busy <= 1'b0;
+            done <= 1'b1;
+         end else begin
+            busy <= 1'b1;
+            done <= 1'b0;
+         end
+      end else if (busy) begin
+         dout <= next;
+         if (next == 32'd1) begin
             busy <= 1'b0;
             done <= 1'b1;
          end
       end
    end
-
 endmodule

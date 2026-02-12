@@ -13,7 +13,7 @@ $timescale 1ps $end
    $var wire 32 & dout [31:0] $end
    $var wire 1 ' done $end
    $var wire 1 ( busy $end
-   $var wire 32 ) temp [31:0] $end
+   $var wire 32 ) next [31:0] $end
   $upscope $end
  $upscope $end
 $enddefinitions $end
