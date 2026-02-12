@@ -22,6 +22,10 @@ class alignas(VL_CACHE_LINE_BYTES) Vrange VL_NOT_FINAL : public VerilatedModel {
 
   public:
 
+    // CONSTEXPR CAPABILITIES
+    // Verilated with --trace?
+    static constexpr bool traceCapable = true;
+
     // PORTS
     // The application code writes and reads these signals to
     // propagate new values into/out from the Verilated model.
@@ -67,7 +71,7 @@ class alignas(VL_CACHE_LINE_BYTES) Vrange VL_NOT_FINAL : public VerilatedModel {
     /// Returns time at next time slot. Aborts if !eventsPending()
     uint64_t nextTimeSlot();
     /// Trace signals in the model; called by application code
-    void trace(VerilatedVcdC* tfp, int levels, int options = 0);
+    void trace(VerilatedTraceBaseC* tfp, int levels, int options = 0) { contextp()->trace(tfp, levels, options); }
     /// Retrieve name of this model instance (as passed to constructor).
     const char* name() const;
 
@@ -82,6 +86,9 @@ class alignas(VL_CACHE_LINE_BYTES) Vrange VL_NOT_FINAL : public VerilatedModel {
     /// Re-allocate necessary resources. Called after cloning.
     void atClone() const;
     std::unique_ptr<VerilatedTraceConfig> traceConfig() const override final;
+  private:
+    // Internal functions - trace registration
+    void traceBaseModel(VerilatedTraceBaseC* tfp, int levels, int options);
 };
 
 #endif  // guard

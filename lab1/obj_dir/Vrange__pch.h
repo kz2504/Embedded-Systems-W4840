@@ -5,7 +5,6 @@
 // unless using verilator public meta comments.
 // Suggest use Vrange.h instead.
 
-
 #ifndef VERILATED_VRANGE__PCH_H_
 #define VERILATED_VRANGE__PCH_H_  // guard
 
@@ -22,5 +21,7 @@
 
 #include "Vrange__Syms.h"
 #include "Vrange.h"
+
+// Additional include files added using '--compiler-include'
 
 #endif  // guard

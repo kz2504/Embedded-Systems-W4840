@@ -10,7 +10,7 @@
 
 class Vrange__Syms;
 
-class alignas(VL_CACHE_LINE_BYTES) Vrange___024root final : public VerilatedModule {
+class alignas(VL_CACHE_LINE_BYTES) Vrange___024root final {
   public:
 
     // DESIGN SPECIFIC STATE
@@ -31,7 +31,6 @@ class alignas(VL_CACHE_LINE_BYTES) Vrange___024root final : public VerilatedModu
     CData/*0:0*/ __VstlFirstIteration;
     CData/*0:0*/ __VicoFirstIteration;
     CData/*0:0*/ __Vtrigprevexpr___TOP__clk__0;
-    CData/*0:0*/ __VactContinue;
     VL_OUT16(count,15,0);
     SData/*15:0*/ range__DOT__din;
     VL_IN(start,31,0);
@@ -40,17 +39,18 @@ class alignas(VL_CACHE_LINE_BYTES) Vrange___024root final : public VerilatedModu
     IData/*31:0*/ range__DOT__c1__DOT__temp;
     IData/*31:0*/ __VactIterCount;
     VlUnpacked<SData/*15:0*/, 16> range__DOT__mem;
+    VlUnpacked<QData/*63:0*/, 1> __VstlTriggered;
+    VlUnpacked<QData/*63:0*/, 1> __VicoTriggered;
+    VlUnpacked<QData/*63:0*/, 1> __VactTriggered;
+    VlUnpacked<QData/*63:0*/, 1> __VnbaTriggered;
     VlUnpacked<CData/*0:0*/, 2> __Vm_traceActivity;
-    VlTriggerVec<1> __VstlTriggered;
-    VlTriggerVec<1> __VicoTriggered;
-    VlTriggerVec<1> __VactTriggered;
-    VlTriggerVec<1> __VnbaTriggered;
 
     // INTERNAL VARIABLES
-    Vrange__Syms* const vlSymsp;
+    Vrange__Syms* vlSymsp;
+    const char* vlNamep;
 
     // CONSTRUCTORS
-    Vrange___024root(Vrange__Syms* symsp, const char* v__name);
+    Vrange___024root(Vrange__Syms* symsp, const char* namep);
     ~Vrange___024root();
     VL_UNCOPYABLE(Vrange___024root);
 

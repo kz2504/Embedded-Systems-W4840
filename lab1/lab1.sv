@@ -68,9 +68,14 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
       end else if (done == 1'b1) begin
          running <= 1'b0;
          start <= 32'b0;
-         n_display <= count[11:0];
       end
    end
+
+   always_ff @(posedge clk) begin
+      if (done == 1'b1) begin
+         n_display <= count[11:0];
+      end 
+   end 
 
    assign HEX0 = hex0;
    assign HEX1 = hex1;
