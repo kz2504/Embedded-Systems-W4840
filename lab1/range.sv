@@ -31,6 +31,21 @@ module range
 
    assign we = !reset_we ? cdone : 1'b0;
    assign done = !reset_done ? (wr_count == (RAM_ADDR_BITS + 1)'(RAM_WORDS)) : 1'b0;
+
+   initial begin
+      running = 1'b0;
+      cgo = 1'b0;
+      n = 32'd0;
+      num = '0;
+
+      reset_we = 1'b0;
+      reset_done = 1'b0;
+      creset = 1'b0;
+      wr_count = '0;
+
+      din = 16'd0;
+      count = 16'd0;
+   end
    
    always_ff @(posedge clk) begin
       if (go == 1'b1) begin

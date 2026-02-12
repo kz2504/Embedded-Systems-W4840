@@ -28,11 +28,9 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    range #(256, 8) // RAM_WORDS = 256, RAM_ADDR_BITS = 8)
          r ( .* ); // Connect everything with matching names
 
-   // Replace this comment and the code below it with your own code;
-   // The code below is merely to suppress Verilator lint warnings
-   logic running = 0; 
-   logic key_latched = 0;
-   logic [6:0] hex0, hex1, hex2, hex3, hex4, hex5 = '0;
+   logic running; 
+   logic key_latched;
+   logic [6:0] hex0, hex1, hex2, hex3, hex4, hex5;
 
    hex7seg h5 (n[11:8], hex5);
    hex7seg h4 (n[7:4], hex4);
@@ -41,6 +39,20 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    hex7seg h2 (count[11:8], hex2);
    hex7seg h1 (count[7:4], hex1);
    hex7seg h0 (count[3:0], hex0);
+
+   initial begin
+      go = 1'b0;
+      start = 32'd0;
+      n = 12'd0;
+
+      running = 1'b0;
+      key_latched = 1'b0;
+
+      LEDR = '0;
+
+      hex0 = '0; hex1 = '0; hex2 = '0;
+      hex3 = '0; hex4 = '0; hex5 = '0;
+   end
 
    always_ff @(posedge clk) begin
       go <= 1'b0;
