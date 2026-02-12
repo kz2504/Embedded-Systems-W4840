@@ -68,13 +68,16 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
          end else begin
             key_latched <= 1'b0;
          end
-      end else if (running == 1'b1) begin
-         LEDR <= '0;
       end else if (done == 1'b1) begin
          running <= 1'b0;
-         start <= 32'b0;
+      end if (running == 1'b1) begin
+         LEDR <= '0;
+      end else begin
          LEDR <= '1;
+         start <= '0;
       end
+
+      
    end
 
    assign HEX0 = hex0;
