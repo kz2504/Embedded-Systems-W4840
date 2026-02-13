@@ -103,7 +103,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
          N_VIRTUAL: begin
             key0_counter <= 24'b0;
             key1_counter <= 24'b0;
-            if (KEY[2] == 1'b0) begin
+            if ((KEY[2] == 1'b0) || (KEY[3] == 1'b0)) begin
                state <= TRIGGER;
             end else if (KEY[0] == 1'b0) begin
                key0_counter <= key0_counter + 1'b1;
@@ -127,7 +127,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
                   start <= {20'b0, n_virtual}; //Update count display
                   key1_counter <= 24'b0;
                end 
-            end else begin 
+            end else begin
                start <= {20'b0, n_virtual};
                state <= N_VIRTUAL;
             end
@@ -148,7 +148,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
             start <= 32'b0;
             if (KEY[3] == 1'b1) begin
                done_counter <= done_counter + 1'b1;
-               if (done_counter == 23'b1) begin
+               if (done_counter == '1) begin //Force delay before return to IDLE/trigger ready
                   state <= IDLE;
                   done_counter <= 23'b0;
                end
