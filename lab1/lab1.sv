@@ -118,6 +118,8 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
             key1_counter <= 24'b0;
             if (((KEY[2] == 1'b0) || (KEY[3] == 1'b0)) && (n != '0)) begin
                state <= TRIGGER; //Trigger has precedence (KEY2 resyncs by retriggering range)
+            end else if ((KEY[0] == 1'b0) && (KEY[1] == 1'b0)) begin
+               state <= N_VIRTUAL;
             end else if (KEY[0] == 1'b0) begin
                key0_counter <= key0_counter + 1'b1;
                if (key0_counter > 24'h989680) begin
