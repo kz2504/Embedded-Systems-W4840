@@ -84,7 +84,6 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
       case (state)
          IDLE: begin
             n <= {2'b0, SW}; 
-            start <= {22'b0, SW}; 
             if (KEY[2] == 1'b0) begin
                state <= IDLE; //Do nothing if KEY2 held
             end else if ((KEY[0] == 1'b0) || (KEY[1] == 1'b0)) begin
@@ -92,6 +91,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
                n_virtual <= n;
             end else if (KEY[3] == 1'b0) begin
                go <= 1'b1;
+               start <= {20'b0, n}; 
                state <= RUNNING;
             end
          end
@@ -100,11 +100,12 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
             key0_counter <= 24'b0;
             key1_counter <= 24'b0;
             if (KEY[2] == 1'b0) begin
+               start <= {20'b0, n}; 
                state <= IDLE;
             end else if (KEY[0] == 1'b0) begin
                key0_counter <= key0_counter + 1'b1;
                if (key0_counter > 24'h989680) begin
-                  if (n_virtual < n + 255) begin 
+                  if (n_virtual < n + 255) begin
                      n_virtual <= n_virtual + 1;
                   end else if (n_virtual == n + 255) begin
                      n_virtual <= n; //Wraparound
