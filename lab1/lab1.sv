@@ -28,9 +28,12 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    range #(256, 8) // RAM_WORDS = 256, RAM_ADDR_BITS = 8)
          r ( .* ); // Connect everything with matching names
 
-   typedef enum {IDLE, LOCKED, DONE_LOCKED, DONE_UNLOCKED} State;
+   typedef enum {IDLE, RUNNING, DONE_LOCKED} State;
 
    State state;
+
+   logic [23:0] key0_counter; 
+   logic [23:0] key1_counter; 
 
    logic [6:0] hex0, hex1, hex2, hex3, hex4, hex5;
 
@@ -49,6 +52,9 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
 
       state = IDLE;
 
+      key0_counter = 24'b0;
+      key1_counter = 24'b0;
+
       LEDR = '0;
 
       hex0 = '0; hex1 = '0; hex2 = '0;
@@ -59,22 +65,38 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
       case (state)
          IDLE: begin
             n <= {2'b0, SW}; 
+
+            key0_counter <= 24'b0;
+            key1_counter <= 24'b0;
+
             if (KEY[3] == 1'b0) begin
                go <= 1'b1;
                start <= {20'b0, n};
-               state <= LOCKED;
+               state <= RUNNING;
+            end else if (KEY[0] == 1'b0) begin
+               key0_counter <= key0_counter + 1'b1;
+               if (key0_counter > 24'h989680) begin
+                  n <= n + 1;
+                  key0_counter <= 24'b0;
+               end 
+            end else if (KEY[1] == 1'b0) begin
+               key1_counter <= key1_counter + 1'b1;
+               if (key1_counter > 24'h989680) begin
+                  n <= n - 1;
+                  key1_counter <= 24'b0;
+               end 
             end
          end
-         LOCKED: begin
+         RUNNING: begin
             LEDR <= '0;
             go <= 1'b0;
             if (done == 1'b1) begin
                state <= DONE_LOCKED;
             end else begin
-               state <= LOCKED;
+               state <= RUNNING;
             end
          end
-         DONE_LOCKED: begin //LOCKED
+         DONE_LOCKED: begin
             LEDR <= '1;
             start <= 32'b0;
             state <= DONE_LOCKED;
