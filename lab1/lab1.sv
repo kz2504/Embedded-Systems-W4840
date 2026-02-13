@@ -28,7 +28,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    range #(256, 8) // RAM_WORDS = 256, RAM_ADDR_BITS = 8)
          r ( .* ); // Connect everything with matching names
 
-   typedef enum {IDLE, LOCKED, DONE} State;
+   typedef enum {IDLE, LOCKED, DONE_LOCKED, DONE_UNLOCKED} State;
 
    State state;
 
@@ -55,7 +55,6 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
       hex3 = '0; hex4 = '0; hex5 = '0;
    end
    
-
    always_ff @(posedge clk) begin
       case (state)
          IDLE: begin
@@ -69,16 +68,25 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
          LOCKED: begin
             LEDR <= '0;
             go <= 1'b0;
-            if ((KEY[3] == 1'b1) && (done == 1'b1)) begin
-               state <= DONE; //Display if done and button released
+            if (done == 1'b1) begin
+               if (KEY[3] == 1'b1) begin
+                  state <= DONE_UNLOCKED;
+               end else begin
+                  state <= DONE_LOCKED;
+               end
             end else begin
                state <= LOCKED;
             end
          end
-         DONE: begin
+         DONE_UNLOCKED: begin
             LEDR <= '1;
             start <= 32'b0;
-            state <= DONE;
+            state <= IDLE;
+         end
+         DONE_LOCKED: begin //LOCKED
+            LEDR <= '1;
+            start <= 32'b0;
+            state <= DONE_LOCKED;
          end
       endcase 
    end
