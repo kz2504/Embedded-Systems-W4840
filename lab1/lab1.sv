@@ -69,24 +69,18 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
             LEDR <= '0;
             go <= 1'b0;
             if (done == 1'b1) begin
-               if (KEY[3] == 1'b1) begin
-                  state <= DONE_UNLOCKED;
-               end else begin
-                  state <= DONE_LOCKED;
-               end
+               state <= DONE_LOCKED;
             end else begin
                state <= LOCKED;
             end
-         end
-         DONE_UNLOCKED: begin
-            LEDR <= '1;
-            start <= 32'b0;
-            state <= IDLE;
          end
          DONE_LOCKED: begin //LOCKED
             LEDR <= '1;
             start <= 32'b0;
             state <= DONE_LOCKED;
+            if (KEY[3] == 1'b1) begin
+               state <= IDLE;
+            end
          end
       endcase 
    end
