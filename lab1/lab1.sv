@@ -32,10 +32,16 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
 
    State state;
 
+   //Debounce counter for key0/1
    logic [23:0] key0_counter; 
    logic [23:0] key1_counter; 
+
+   //n value display
    logic [11:0] n_virtual;
    logic [11:0] n_hex;
+
+   //Debounce counter for trigger
+   logic [22:0] done_counter;
 
    logic [6:0] hex0;
    logic [6:0] hex1;
@@ -64,6 +70,8 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
       key0_counter = 24'b0;
       key1_counter = 24'b0;
 
+      done_counter = 23'b0;
+
       LEDR = '0;
 
       hex0 = '0; hex1 = '0; hex2 = '0;
@@ -76,13 +84,13 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
       case (state)
          IDLE: begin
             n <= {2'b0, SW}; 
+            start <= {22'b0, SW}; 
             if (KEY[2] == 1'b0) begin
                state <= IDLE; //Do nothing if KEY2 held
             end else if ((KEY[0] == 1'b0) || (KEY[1] == 1'b0)) begin
                state <= N_VIRTUAL;
                n_virtual <= n;
             end else if (KEY[3] == 1'b0) begin
-               start <= {20'b0, n};
                go <= 1'b1;
                state <= RUNNING;
             end
@@ -96,10 +104,10 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
             end else if (KEY[0] == 1'b0) begin
                key0_counter <= key0_counter + 1'b1;
                if (key0_counter > 24'h989680) begin
-                  if (n_virtual < n + 255) begin //Wraparound
+                  if (n_virtual < n + 255) begin 
                      n_virtual <= n_virtual + 1;
                   end else if (n_virtual == n + 255) begin
-                     n_virtual <= n;
+                     n_virtual <= n; //Wraparound
                   end
                   start <= {20'b0, n_virtual}; //Update count display
                   key0_counter <= 24'b0;
@@ -107,10 +115,10 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
             end else if (KEY[1] == 1'b0) begin
                key1_counter <= key1_counter + 1'b1;
                if (key1_counter > 24'h989680) begin
-                  if (n_virtual > n) begin //Wraparound
+                  if (n_virtual > n) begin 
                      n_virtual <= n_virtual - 1;
                   end else if (n_virtual == n) begin
-                     n_virtual <= n + 255;
+                     n_virtual <= n + 255; //Wraparound
                   end
                   start <= {20'b0, n_virtual}; //Update count display
                   key1_counter <= 24'b0;
@@ -134,9 +142,14 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
          DONE_LOCKED: begin
             LEDR <= '1;
             start <= 32'b0;
-            state <= DONE_LOCKED;
             if (KEY[3] == 1'b1) begin
-               state <= IDLE;
+               done_counter <= done_counter + 1'b1;
+               if (done_counter == 23'b1) begin
+                  state <= IDLE;
+                  done_counter <= 23'b0;
+               end
+            end else begin
+               state <= DONE_LOCKED;
             end
          end
       endcase 
