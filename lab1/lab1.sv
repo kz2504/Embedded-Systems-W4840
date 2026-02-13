@@ -28,7 +28,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    range #(256, 8) // RAM_WORDS = 256, RAM_ADDR_BITS = 8)
          r ( .* ); // Connect everything with matching names
 
-   typedef enum {IDLE, RUNNING, DONE_LOCKED, N_VIRTUAL} State;
+   typedef enum {IDLE, RUNNING, DONE_LOCKED, N_VIRTUAL, TRIGGER} State;
 
    State state;
 
@@ -90,18 +90,21 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
                state <= N_VIRTUAL;
                n_virtual <= n;
             end else if (KEY[3] == 1'b0) begin
-               go <= 1'b1;
-               start <= {20'b0, n}; 
-               state <= RUNNING;
+               state <= TRIGGER;
             end
+         end
+
+         TRIGGER: begin
+            go <= 1'b1;
+            start <= {20'b0, n}; 
+            state <= RUNNING;
          end
 
          N_VIRTUAL: begin
             key0_counter <= 24'b0;
             key1_counter <= 24'b0;
             if (KEY[2] == 1'b0) begin
-               start <= {20'b0, n}; 
-               state <= IDLE;
+               state <= TRIGGER;
             end else if (KEY[0] == 1'b0) begin
                key0_counter <= key0_counter + 1'b1;
                if (key0_counter > 24'h989680) begin
