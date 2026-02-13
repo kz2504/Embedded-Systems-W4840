@@ -113,7 +113,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
                   end else if (n_virtual == n + 255) begin
                      n_virtual <= n; //Wraparound
                   end
-                  start <= {20'b0, n_virtual}; //Update count display
+                  start <= {20'b0, n_virtual - n}; //Update count display
                   key0_counter <= 24'b0;
                end 
             end else if (KEY[1] == 1'b0) begin
@@ -124,7 +124,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
                   end else if (n_virtual == n) begin
                      n_virtual <= n + 255; //Wraparound
                   end
-                  start <= {20'b0, n_virtual}; //Update count display
+                  start <= {20'b0, n_virtual - n}; //Update count display
                   key1_counter <= 24'b0;
                end 
             end else begin
