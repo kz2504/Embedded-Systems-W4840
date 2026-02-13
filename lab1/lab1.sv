@@ -28,7 +28,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    range #(256, 8) // RAM_WORDS = 256, RAM_ADDR_BITS = 8)
          r ( .* ); // Connect everything with matching names
 
-   typedef enum {IDLE, RUNNING, DONE_LOCKED, N_VIRTUAL, TRIGGER} State;
+   typedef enum {IDLE_EMPTY, IDLE_DONE, RUNNING, DONE_LOCKED, N_VIRTUAL, TRIGGER} State;
 
    State state;
 
@@ -65,7 +65,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
       n_virtual = 12'b0;
       n_hex = 12'b0;
 
-      state = IDLE;
+      state = IDLE_EMPTY;
 
       key0_counter = 24'b0;
       key1_counter = 24'b0;
@@ -82,15 +82,28 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
    
    always_ff @(posedge clk) begin
       case (state)
-         IDLE: begin //Idle/trigger ready
+         IDLE_EMPTY: begin //Idle/trigger ready - no result yet
             n <= {2'b0, SW}; 
             if (KEY[2] == 1'b0) begin
-               state <= IDLE; //KEY2 has precedence: do nothing
+               state <= IDLE_EMPTY; //KEY2 has precedence: do nothing
+            end else if ((KEY[3] == 1'b0) && (n != '0)) begin
+               state <= TRIGGER; //Finally, poll KEY3 for range trigger w/ 0-case prot
+            end else begin
+               state <= IDLE_EMPTY;
+            end
+         end
+
+         IDLE_DONE: begin //Idle/trigger ready - range results available
+            n <= {2'b0, SW}; 
+            if (KEY[2] == 1'b0) begin
+               state <= IDLE_DONE; //KEY2 has precedence: do nothing
             end else if ((KEY[0] == 1'b0) || (KEY[1] == 1'b0)) begin
                state <= N_VIRTUAL; //Next, poll KEYS0 & 1: virtual mode
                n_virtual <= n;
-            end else if (KEY[3] == 1'b0) begin
+            end else if ((KEY[3] == 1'b0) && (n != '0)) begin
                state <= TRIGGER; //Finally, poll KEY3 for range trigger
+            end else begin
+               state <= IDLE_DONE;
             end
          end
 
@@ -103,8 +116,8 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
          N_VIRTUAL: begin
             key0_counter <= 24'b0; //Reset debounce counters
             key1_counter <= 24'b0;
-            if ((KEY[2] == 1'b0) || (KEY[3] == 1'b0)) begin
-               state <= TRIGGER; //Trigger has precedence
+            if (((KEY[2] == 1'b0) || (KEY[3] == 1'b0)) && (n != '0)) begin
+               state <= TRIGGER; //Trigger has precedence (KEY2 resyncs by retriggering range)
             end else if (KEY[0] == 1'b0) begin
                key0_counter <= key0_counter + 1'b1;
                if (key0_counter > 24'h989680) begin
@@ -151,7 +164,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
             if (KEY[3] == 1'b1) begin
                done_counter <= done_counter + 1'b1;
                if (done_counter == '1) begin //Force delay before return to IDLE/trigger ready
-                  state <= IDLE;
+                  state <= IDLE_DONE;
                   done_counter <= 23'b0;
                end
             end else begin
