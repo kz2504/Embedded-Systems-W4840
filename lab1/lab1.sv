@@ -34,6 +34,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
 
    logic [23:0] key0_counter; 
    logic [23:0] key1_counter; 
+   logic [11:0] n_display;
 
    logic [6:0] hex0, hex1, hex2, hex3, hex4, hex5;
 
@@ -54,6 +55,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
 
       key0_counter = 24'b0;
       key1_counter = 24'b0;
+      n_display = 12'b0;
 
       LEDR = '0;
 
@@ -76,6 +78,7 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
             end
          end
          N_VIRTUAL: begin
+            n_display <= n;
             key0_counter <= 24'b0;
             key1_counter <= 24'b0;
             if (KEY[2] == 1'b0) begin
@@ -83,19 +86,26 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
             end else if (KEY[0] == 1'b0) begin
                key0_counter <= key0_counter + 1'b1;
                if (key0_counter > 24'h989680) begin
-                  n <= n + 1;
+                  if (n_display < n + 255) begin //Wraparound
+                     n_display <= n_display + 1;
+                  end else if (n_display == n + 255) begin
+                     n_display <= n;
+                  end
                   key0_counter <= 24'b0;
                end 
             end else if (KEY[1] == 1'b0) begin
                key1_counter <= key1_counter + 1'b1;
                if (key1_counter > 24'h989680) begin
-                  n <= n - 1;
+                  if (n_display > n) begin //Wraparound
+                     n_display <= n_display - 1;
+                  end else if (n_display == n) begin
+                     n_display <= n + 255;
+                  end
                   key1_counter <= 24'b0;
                end 
-            end else if (KEY[3] == 1'b0) begin
-               start <= {20'b0, n};
-               go <= 1'b1;
-               state <= RUNNING;
+            end else begin 
+               start <= {20'b0, n_display};
+               state <= N_VIRTUAL;
             end
          end
          RUNNING: begin
