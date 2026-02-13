@@ -78,39 +78,40 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
       hex3 = '0; hex4 = '0; hex5 = '0;
    end
 
-   assign n_hex = (state == N_VIRTUAL) ? n_virtual : n;
+   assign n_hex = (state == N_VIRTUAL) ? n_virtual : n; //mux outputs to first three 7-segs
    
    always_ff @(posedge clk) begin
       case (state)
-         IDLE: begin
+         IDLE: begin //Idle/trigger ready
             n <= {2'b0, SW}; 
             if (KEY[2] == 1'b0) begin
-               state <= IDLE; //Do nothing if KEY2 held
+               state <= IDLE; //KEY2 has precedence: do nothing
             end else if ((KEY[0] == 1'b0) || (KEY[1] == 1'b0)) begin
-               state <= N_VIRTUAL;
+               state <= N_VIRTUAL; //Next, poll KEYS0 & 1: virtual mode
                n_virtual <= n;
             end else if (KEY[3] == 1'b0) begin
-               state <= TRIGGER;
+               state <= TRIGGER; //Finally, poll KEY3 for range trigger
             end
          end
 
-         TRIGGER: begin
+         TRIGGER: begin //Configure and trigger range module
             go <= 1'b1;
             start <= {20'b0, n}; 
             state <= RUNNING;
          end
 
          N_VIRTUAL: begin
-            key0_counter <= 24'b0;
+            key0_counter <= 24'b0; //Reset debounce counters
             key1_counter <= 24'b0;
             if ((KEY[2] == 1'b0) || (KEY[3] == 1'b0)) begin
-               state <= TRIGGER;
+               state <= TRIGGER; //Trigger has precedence
             end else if (KEY[0] == 1'b0) begin
                key0_counter <= key0_counter + 1'b1;
                if (key0_counter > 24'h989680) begin
                   if (n_virtual < n + 12'd255) begin
                      n_virtual <= n_virtual + 1'b1;
-                     start <= {20'b0, 12'((n_virtual + 1'b1 - n))}; //Update count display
+                     start <= {20'b0, 12'((n_virtual + 1'b1 - n))}; //Update count display with current value
+                     //Note that n_virtual is the number to display but its address is its offset from n
                   end else if (n_virtual == n + 12'd255) begin
                      n_virtual <= n; //Wraparound
                      start <= {20'b0, n};
@@ -122,29 +123,29 @@ module lab1( input logic        CLOCK_50,  // 50 MHz Clock input
                if (key1_counter > 24'h989680) begin
                   if (n_virtual > n) begin 
                      n_virtual <= n_virtual - 1'b1;
-                     start <= {20'b0, 12'((n_virtual - 1'b1 - n))}; //Update count display
+                     start <= {20'b0, 12'((n_virtual - 1'b1 - n))}; //Update count display with current value
                   end else if (n_virtual == n) begin
                      n_virtual <= n + 12'd255; //Wraparound
-                     start <= {20'b0, 12'd255}; //Update count display
+                     start <= {20'b0, 12'd255};
                   end
                   key1_counter <= 24'b0;
                end 
             end else begin
-               state <= N_VIRTUAL;
+               state <= N_VIRTUAL; //Stay in virtual n state unless triggered or KEY2 pressed
             end
          end
 
-         RUNNING: begin
+         RUNNING: begin //Range running: Do nothing
             LEDR <= '0;
             go <= 1'b0;
             if (done == 1'b1) begin
-               state <= DONE_LOCKED;
+               state <= DONE_LOCKED; //Go to DONE_LOCKED if range sets done flag
             end else begin
                state <= RUNNING;
             end
          end
 
-         DONE_LOCKED: begin
+         DONE_LOCKED: begin //Range done: Wait for delay timer before arming again
             LEDR <= '1;
             start <= 32'b0;
             if (KEY[3] == 1'b1) begin
