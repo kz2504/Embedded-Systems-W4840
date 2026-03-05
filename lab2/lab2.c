@@ -138,6 +138,9 @@ int main()
 		
 		if (c == '\n') {
 			
+
+			input_buffer[cursor_pos] = '\0'; 
+		
 			write(sockfd, input_buffer, strlen(input_buffer));
 
 			fbputs(input_buffer, 0, chat_line++); 
@@ -154,6 +157,9 @@ int main()
 	} 
 
 		else {
+
+		if (cursor_pos < sizeof(input_buffer) - 1) {
+
 			input_buffer[cursor_pos++] = c;
 			fbputchar(c, 35, cursor_pos); 
 	} 
