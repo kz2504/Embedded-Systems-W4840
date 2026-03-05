@@ -78,8 +78,7 @@ static void init_screen(void);
 static void render_input_locked(void);
 static int next_chat_row_locked(int row);
 static void chat_print_message(const char *message);
-static int keycode_is_new(uint8_t keycode,
-                          const struct usb_keyboard_packet *previous);
+static int keycode_is_new(uint8_t keycode, const struct usb_keyboard_packet *previous);
 static struct key_event decode_key_event(uint8_t keycode, uint8_t modifiers);
 static void handle_key_event(const struct key_event *event);
 
@@ -96,7 +95,7 @@ static void draw_divider_locked(void)
 {
   int col;
   for (col = 0; col < SCREEN_COLS; col++) {
-    fbputchar('=', DIVIDER_ROW, col);
+    fbputchar('-', DIVIDER_ROW, col);
   }
 }
 
