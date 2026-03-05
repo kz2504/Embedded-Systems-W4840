@@ -16,7 +16,7 @@
 
 char input_buffer[128];
 int cursor_pos = 0; 
-int chat_row = 0; 
+int chat_line = 0; 
 
 char keycode_to_ascii(int code, int shift) {
 	
