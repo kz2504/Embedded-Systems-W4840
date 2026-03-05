@@ -150,12 +150,12 @@ int main()
 		cursor_pos--; 
 		input_buffer[cursor_pos] = 0; 
 
-		fbputchar(' ', cursor_pos, 35); 
+		fbputchar(' ', 35, cursor_pos); 
 	} 
 
 		else {
 			input_buffer[cursor_pos++] = c;
-			fbputchar(c, cursor_pos, 35); 
+			fbputchar(c, 35, cursor_pos); 
 	} 
 
 
