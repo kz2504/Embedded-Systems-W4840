@@ -10,5 +10,6 @@
 extern int fbopen(void);
 extern void fbputchar(char, int, int);
 extern void fbputs(const char *, int, int);
+extern void draw_underline_cursor_locked(cursor_row, cursor_col);
 
 #endif
