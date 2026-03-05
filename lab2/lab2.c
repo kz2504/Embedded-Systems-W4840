@@ -82,7 +82,7 @@ static int keycode_is_new(uint8_t keycode, const struct usb_keyboard_packet *pre
 static struct key_event decode_key_event(uint8_t keycode, uint8_t modifiers);
 static void handle_key_event(const struct key_event *event);
 
-
+//Clears row by writing spaces
 static void clear_row_locked(int row)
 {
   int col;
@@ -91,11 +91,34 @@ static void clear_row_locked(int row)
   }
 }
 
+//Draws line of '-' characters
 static void draw_divider_locked(void)
 {
   int col;
   for (col = 0; col < SCREEN_COLS; col++) {
     fbputchar('-', DIVIDER_ROW, col);
+  }
+}
+
+static void draw_underline_cursor_locked(int row, int col)
+{
+  int bpp = BITS_PER_PIXEL / 8;          // should be 4
+  int cell_w = FONT_WIDTH * 2;
+  int cell_h = FONT_HEIGHT * 2;
+
+  // bottom scanline inside the cell (last row of pixels)
+  int y = (row * cell_h + fb_vinfo.yoffset) + (cell_h - 2); // -2 makes it 2px thick
+  unsigned char *p = framebuffer
+    + y * fb_finfo.line_length
+    + (col * cell_w + fb_vinfo.xoffset) * bpp;
+
+  // draw a 2-pixel-thick underline
+  for (int dy = 0; dy < 2; dy++) {
+    unsigned char *q = p + dy * fb_finfo.line_length;
+    for (int x = 0; x < cell_w; x++) {
+      q[0] = 255; q[1] = 255; q[2] = 255; q[3] = 0; // white
+      q += 4;
+    }
   }
 }
 
@@ -106,35 +129,39 @@ static void render_input_locked(void)
   int cursor_row;
   int cursor_col;
 
+  //Clears input box
   for (row = INPUT_START_ROW; row < SCREEN_ROWS; row++) {
     clear_row_locked(row);
   }
 
+  //Writes characters from input buffer with wraparound
   for (i = 0; i < input_len; i++) {
     row = INPUT_START_ROW + i / SCREEN_COLS;
     col = i % SCREEN_COLS;
     fbputchar(input_buffer[i], row, col);
   }
 
+  //Prevents cursor overflow
   cursor_index = cursor_pos;
   if (cursor_index >= INPUT_MAX_CHARS) {
     cursor_index = INPUT_MAX_CHARS - 1;
   }
+  //Render cursor
   cursor_row = INPUT_START_ROW + cursor_index / SCREEN_COLS;
   cursor_col = cursor_index % SCREEN_COLS;
-  fbputchar('|', cursor_row, cursor_col);
+  draw_underline_cursor_locked(cursor_row, cursor_col);
 }
 
 static void init_screen(void)
 {
   int row;
 
-  pthread_mutex_lock(&screen_lock);
+  pthread_mutex_lock(&screen_lock); //Lock out network thread
   for (row = 0; row < SCREEN_ROWS; row++) {
-    clear_row_locked(row);
+    clear_row_locked(row); //Clear receive region
   }
-  draw_divider_locked();
-  render_input_locked();
+  draw_divider_locked(); //Render divider
+  render_input_locked(); //Init input region
   pthread_mutex_unlock(&screen_lock);
 }
 
@@ -142,9 +169,9 @@ static int next_chat_row_locked(int row)
 {
   int next = row + 1;
   if (next >= CHAT_ROWS) {
-    next = 0;
+    next = 0; //Wraparound if at divider
   }
-  clear_row_locked(next);
+  clear_row_locked(next); //Prepare next row by clearing
   return next;
 }
 
@@ -195,8 +222,7 @@ static void chat_print_message(const char *message)
   pthread_mutex_unlock(&screen_lock);
 }
 
-static int keycode_is_new(uint8_t keycode,
-                          const struct usb_keyboard_packet *previous)
+static int keycode_is_new(uint8_t keycode, const struct usb_keyboard_packet *previous)
 {
   int i;
   for (i = 0; i < 6; i++) {
