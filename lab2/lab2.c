@@ -1,8 +1,8 @@
 /*
  *
- * CSEE 4840 Lab 2 for 2019
+ CS 4840 Lab 2 for 2019
  *
- * Name/UNI: Please Changeto Yourname (pcy2301)
+ * Name/UNI: Leen Alshorafa (laa2202) - Kuan Zhang (kz2504)
  */
 #include "fbputchar.h"
 #include <stdio.h>
@@ -14,12 +14,52 @@
 #include "usbkeyboard.h"
 #include <pthread.h>
 
+char input_buffer[128];
+int cursor_pos = 0; 
+int chat_row = 0; 
+
+char keycode_to_ascii(int code, int shift) {
+	
+	if(code >= 4 && code <= 29) {
+		char c = 'a' + (code - 4); 
+		if (shift) c -= 32; 
+		return c; 
+	} 
+
+
+	if (code >= 30 && code <=38)
+		return '1' + (code - 30); 
+
+	if (code == 44)
+		return ' '; 
+
+	if (code == 40)
+		return '\n'; 
+
+	if (code == 42)
+		return '\b';
+
+
+	return 0; 
+
+} 
+
+
+
+
+
+
+
 /* Update SERVER_HOST to be the IP address of
  * the chat server you are connecting to
  */
 /* arthur.cs.columbia.edu */
 #define SERVER_HOST "128.59.19.114"
 #define SERVER_PORT 42000
+#define SCREEN_ROWS 24
+#define SCREEN_COLS 64
+#define INPUT_ROWS 2
+#define CHAT_ROWS (SCREEN_ROWS - INPUT_ROWS - 1) 
 
 #define BUFFER_SIZE 128
 
@@ -54,14 +94,6 @@ int main()
     fprintf(stderr, "Error: Could not open framebuffer: %d\n", err);
     exit(1);
   }
-
-  /* Draw rows of asterisks across the top and bottom of the screen */
-  for (col = 0 ; col < 64 ; col++) {
-    fbputchar('*', 0, col);
-    fbputchar('*', 23, col);
-  }
-
-  fbputs("Hello CSEE 4840 World!", 4, 10);
 
   /* Open the keyboard */
   if ( (keyboard = openkeyboard(&endpoint_address)) == NULL ) {
@@ -99,15 +131,39 @@ int main()
 			      (unsigned char *) &packet, sizeof(packet),
 			      &transferred, 0);
     if (transferred == sizeof(packet)) {
-      sprintf(keystate, "%02x %02x %02x", packet.modifiers, packet.keycode[0],
-	      packet.keycode[1]);
-      printf("%s\n", keystate);
-      fbputs(keystate, 6, 0);
       if (packet.keycode[0] == 0x29) { /* ESC pressed? */
 	break;
       }
+
+	int keycode = packet.keycode[0]; 
+	int shift = packet.modifiers & 0x22; 
+
+	char c = keycode_to_ascii(keycode, shift); 
+	
+	if (c) {
+		
+		if (c == '\n') {
+			
+			write(sockfd, input_buffer, strlen(input_buffer));
+
+			fbputs(input_buffer, 0, chat_line++); 
+			cursor_pos = 0; 
+			memset(input_buffer, 0, sizeof(input_buffer)); 
+		} 
+
+		else if (c == '\b' && cursor_pos > 0) {
+
+		cursor_pos--; 
+		input_buffer[cursor_pos] = 0; 
+
+		fbputchar(' ', cursor_pos, 35); 
+	} 
+
+
     }
   }
+
+} 
 
   /* Terminate the network thread */
   pthread_cancel(network_thread);
@@ -123,10 +179,16 @@ void *network_thread_f(void *ignored)
   char recvBuf[BUFFER_SIZE];
   int n;
   /* Receive data */
-  while ( (n = read(sockfd, &recvBuf, BUFFER_SIZE - 1)) > 0 ) {
+
+int chat_line = 0; 
+
+  while ( (n = read(sockfd, recvBuf, BUFFER_SIZE - 1)) > 0 ) {
     recvBuf[n] = '\0';
     printf("%s", recvBuf);
-    fbputs(recvBuf, 8, 0);
+    fbputs(recvBuf, 0, chat_line++); 
+    
+    if(chat_line > 30)
+	chat_line = 0; 
   }
 
   return NULL;
