@@ -44,12 +44,6 @@ char keycode_to_ascii(int code, int shift) {
 
 } 
 
-
-
-
-
-
-
 /* Update SERVER_HOST to be the IP address of
  * the chat server you are connecting to
  */
@@ -159,6 +153,11 @@ int main()
 		fbputchar(' ', cursor_pos, 35); 
 	} 
 
+		else {
+			input_buffer[cursor_pos++] = c;
+			fbputchar(c, cursor_pos, 35); 
+	} 
+
 
     }
   }
@@ -178,9 +177,7 @@ void *network_thread_f(void *ignored)
 {
   char recvBuf[BUFFER_SIZE];
   int n;
-  /* Receive data */
-
-int chat_line = 0; 
+  /* Receive data */ 
 
   while ( (n = read(sockfd, recvBuf, BUFFER_SIZE - 1)) > 0 ) {
     recvBuf[n] = '\0';
