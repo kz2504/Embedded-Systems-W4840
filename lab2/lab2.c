@@ -4,18 +4,18 @@
  *
  * Name/UNI: Leen Alshorafa (laa2202) - Kuan Zhang (kz2504)
  */
-#include "fbputchar.h"
-#include "usbkeyboard.h"
 
-#include <arpa/inet.h>
-#include <ctype.h>
-#include <pthread.h>
-#include <stdint.h>
+#include "fbputchar.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <unistd.h>
+#include "usbkeyboard.h"
+#include <pthread.h>
+#include <stdint.h>
+#include <ctype.h>
 
 /* Update SERVER_HOST to be the IP address of
  * the chat server you are connecting to
@@ -23,6 +23,8 @@
 /* arthur.cs.columbia.edu */
 #define SERVER_HOST "128.59.19.114"
 #define SERVER_PORT 42000
+
+#define BUFFER_SIZE 128
 
 #define SCREEN_ROWS 24
 #define SCREEN_COLS 64
@@ -32,7 +34,14 @@
 #define INPUT_START_ROW (DIVIDER_ROW + 1)
 #define INPUT_MAX_CHARS (INPUT_ROWS * SCREEN_COLS)
 
-#define BUFFER_SIZE 256
+/*
+ * References:
+ *
+ * https://web.archive.org/web/20130307100215/http://beej.us/guide/bgnet/output/html/singlepage/bgnet.html
+ *
+ * http://www.thegeekstuff.com/2011/12/c-socket-programming/
+ * 
+ */
 
 enum key_action {
   KEY_NONE = 0,
@@ -52,7 +61,10 @@ struct key_event {
 static int sockfd; /* Socket file descriptor */
 static struct libusb_device_handle *keyboard;
 static uint8_t endpoint_address;
+
 static pthread_t network_thread;
+static void *network_thread_f(void *ignored);
+
 static pthread_mutex_t screen_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static char input_buffer[INPUT_MAX_CHARS + 1];
@@ -70,7 +82,7 @@ static int keycode_is_new(uint8_t keycode,
                           const struct usb_keyboard_packet *previous);
 static struct key_event decode_key_event(uint8_t keycode, uint8_t modifiers);
 static void handle_key_event(const struct key_event *event);
-static void *network_thread_f(void *ignored);
+
 
 static void clear_row_locked(int row)
 {
