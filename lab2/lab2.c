@@ -162,9 +162,7 @@ int main()
 
 			input_buffer[cursor_pos++] = c;
 			fbputchar(c, 35, cursor_pos); 
-	} 
-
-
+       } 
     }
   }
 
