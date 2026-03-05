@@ -43,6 +43,7 @@
  * 
  */
 
+//Keyboard control logic
 enum key_action {
   KEY_NONE = 0,
   KEY_INSERT_CHAR,
@@ -53,6 +54,7 @@ enum key_action {
   KEY_ESCAPE
 };
 
+//Struct for key press handling
 struct key_event {
   enum key_action action;
   char ch;
@@ -112,7 +114,7 @@ static void render_input_locked(void)
     clear_row_locked(row);
   }
 
-  //Writes characters from input buffer with wraparound
+  //Render characters from input buffer with wraparound
   for (i = 0; i < input_len; i++) {
     row = INPUT_START_ROW + i / SCREEN_COLS;
     col = i % SCREEN_COLS;
@@ -124,7 +126,7 @@ static void render_input_locked(void)
   if (cursor_index >= INPUT_MAX_CHARS) {
     cursor_index = INPUT_MAX_CHARS - 1;
   }
-  //Render cursor
+  //Render cursor with wraparound
   cursor_row = INPUT_START_ROW + cursor_index / SCREEN_COLS;
   cursor_col = cursor_index % SCREEN_COLS;
   draw_underline_cursor_locked(cursor_row, cursor_col);
@@ -164,35 +166,37 @@ static void chat_print_message(const char *message)
     return;
   }
 
-  pthread_mutex_lock(&screen_lock);
+  pthread_mutex_lock(&screen_lock); //Lock out network thread
 
   clear_row_locked(row);
   len = strlen(message);
   for (i = 0; i < len; i++) {
     unsigned char ch = (unsigned char)message[i];
 
-    if (ch == '\r') {
-      continue;
+    if (ch == '\r') { //Ignore carriage return
+      continue; 
     }
-    if (ch == '\n') {
-      row = next_chat_row_locked(row);
+    if (ch == '\n') { //Newline
+      row = next_chat_row_locked(row); 
       col = 0;
       continue;
     }
-    if (!isprint(ch)) {
-      ch = '?';
+    if (!isprint(ch)) { 
+      ch = '?'; //Display '?' if unprintable
     }
 
-    fbputchar((char)ch, row, col);
+    fbputchar((char)ch, row, col); //Render character
     col++;
+    //Wraparound
     if (col >= SCREEN_COLS) {
       row = next_chat_row_locked(row);
       col = 0;
     }
   }
 
+  //Print next message on next row unless we land back on next row first column
   if (col > 0) {
-    chat_next_row = next_chat_row_locked(row);
+    chat_next_row = next_chat_row_locked(row); 
   } else {
     chat_next_row = row;
   }
@@ -200,6 +204,7 @@ static void chat_print_message(const char *message)
   pthread_mutex_unlock(&screen_lock);
 }
 
+//Check if key press is new and not held
 static int keycode_is_new(uint8_t keycode, const struct usb_keyboard_packet *previous)
 {
   int i;
@@ -211,28 +216,36 @@ static int keycode_is_new(uint8_t keycode, const struct usb_keyboard_packet *pre
   return 1;
 }
 
+//Produce a key_event struct upon key press to store pressed character and desired action
 static struct key_event decode_key_event(uint8_t keycode, uint8_t modifiers)
 {
-  int shift = (modifiers & (USB_LSHIFT | USB_RSHIFT)) != 0;
+  int shift = (modifiers & (USB_LSHIFT | USB_RSHIFT)) != 0; //Check shift
   struct key_event event;
 
   event.action = KEY_NONE;
   event.ch = 0;
 
+  //Letter typed
   if (keycode >= 4 && keycode <= 29) {
-    event.action = KEY_INSERT_CHAR;
-    event.ch = (char)((shift ? 'A' : 'a') + (keycode - 4));
+    static const char *lower = "abcdefghijklmnopqrstuvwxyz";
+    static const char *upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    int idx = keycode - 4; //Shift keycode to index alphabet strings
+    event.action = KEY_INSERT_CHAR; //
+    event.ch = shift ? upper[idx] : lower[idx];
     return event;
   }
 
+  //Number typed
   if (keycode >= 30 && keycode <= 39) {
     static const char normal[] = "1234567890";
     static const char shifted[] = "!@#$%^&*()";
+    int idx = keycode - 30; //Shift keycode to index num/symbol strings
     event.action = KEY_INSERT_CHAR;
-    event.ch = shift ? shifted[keycode - 30] : normal[keycode - 30];
+    event.ch = shift ? shifted[idx] : normal[idx];
     return event;
   }
 
+  //Special character typed
   switch (keycode) {
   case 40:
     event.action = KEY_ENTER;
@@ -304,49 +317,52 @@ static struct key_event decode_key_event(uint8_t keycode, uint8_t modifiers)
   return event;
 }
 
+//Perform action based on key_event struct
 static void handle_key_event(const struct key_event *event)
 {
   if (event == NULL || event->action == KEY_NONE || event->action == KEY_ESCAPE) {
-    return;
+    return; 
   }
 
   switch (event->action) {
   case KEY_INSERT_CHAR:
-    if (input_len < INPUT_MAX_CHARS) {
-      memmove(&input_buffer[cursor_pos + 1], &input_buffer[cursor_pos],
-              (size_t)(input_len - cursor_pos));
-      input_buffer[cursor_pos] = event->ch;
-      cursor_pos++;
+    if (input_len < INPUT_MAX_CHARS) { //Don't add if input region full
+      //Shift text to the right of cursor position (inclusive) right by 1 in buffer to make space
+      memmove(&input_buffer[cursor_pos + 1], &input_buffer[cursor_pos], (size_t)(input_len - cursor_pos));
+      input_buffer[cursor_pos] = event->ch; //Insert character at cursor
+      cursor_pos++; 
       input_len++;
-      input_buffer[input_len] = '\0';
+      input_buffer[input_len] = '\0'; //Terminate input string
     }
     break;
   case KEY_BACKSPACE:
     if (cursor_pos > 0) {
-      memmove(&input_buffer[cursor_pos - 1], &input_buffer[cursor_pos],
-              (size_t)(input_len - cursor_pos));
+      //Shift text to the right of cursor position (inclusive) left by 1, removing char left of cursor
+      memmove(&input_buffer[cursor_pos - 1], &input_buffer[cursor_pos], (size_t)(input_len - cursor_pos));
       cursor_pos--;
       input_len--;
-      input_buffer[input_len] = '\0';
+      input_buffer[input_len] = '\0'; //Terminate input string
     }
     break;
   case KEY_LEFT:
     if (cursor_pos > 0) {
-      cursor_pos--;
+      cursor_pos--; //Arrow keys: move cursor
     }
     break;
   case KEY_RIGHT:
     if (cursor_pos < input_len) {
-      cursor_pos++;
+      cursor_pos++; //Arrow keys: move cursor
     }
     break;
   case KEY_ENTER:
-    if (input_len > 0) {
+    if (input_len > 0) { //Only send if user inputted something
+      //Write to socket and check return value for error
       if (write(sockfd, input_buffer, (size_t)input_len) < 0) {
         perror("write");
       }
       chat_print_message(input_buffer);
     }
+    //Reset input box to empty
     input_len = 0;
     cursor_pos = 0;
     input_buffer[0] = '\0';
@@ -357,19 +373,19 @@ static void handle_key_event(const struct key_event *event)
   }
 
   pthread_mutex_lock(&screen_lock);
-  render_input_locked();
+  render_input_locked(); //Update input region display
   pthread_mutex_unlock(&screen_lock);
 }
 
 int main(void)
 {
   int err;
-  int rc;
-  int transferred = 0;
-  int running = 1;
+  
   struct sockaddr_in serv_addr;
+  
   struct usb_keyboard_packet packet;
   struct usb_keyboard_packet previous_packet;
+  int transferred = 0;
 
   memset(&packet, 0, sizeof(packet));
   memset(&previous_packet, 0, sizeof(previous_packet));
@@ -409,37 +425,31 @@ int main(void)
   }
 
   /* Start the network thread */
-  if (pthread_create(&network_thread, NULL, network_thread_f, NULL) != 0) {
-    fprintf(stderr, "Error: pthread_create() failed\n");
-    exit(1);
-  }
+  pthread_create(&network_thread, NULL, network_thread_f, NULL);
 
   /* Look for and handle keypresses */
-  while (running) {
-    rc = libusb_interrupt_transfer(keyboard, endpoint_address,
-                                   (unsigned char *)&packet, sizeof(packet),
-                                   &transferred, 0);
-    if (rc != 0) {
-      continue;
-    }
-
+  for (;;) {
+    libusb_interrupt_transfer(keyboard, endpoint_address,
+			      (unsigned char *) &packet, sizeof(packet),
+			      &transferred, 0);
     if (transferred == (int)sizeof(packet)) {
-      int i;
+      sprintf(keystate, "%02x %02x %02x", packet.modifiers, packet.keycode[0],
+	      packet.keycode[1]);
+      printf("%s\n", keystate);
 
-      for (i = 0; i < 6; i++) {
+      for (int i = 0; i < 6; i++) { //Check all 6 keycodes in USB packet
         uint8_t keycode = packet.keycode[i];
         struct key_event event;
 
         if (keycode == 0 || !keycode_is_new(keycode, &previous_packet)) {
-          continue;
+          continue; //Do nothing if no key or key is being held
         }
 
-        event = decode_key_event(keycode, packet.modifiers);
+        event = decode_key_event(keycode, packet.modifiers); //Decode keypress
         if (event.action == KEY_ESCAPE) {
-          running = 0;
-          break;
+          break; //Terminate if esc pressed
         }
-        handle_key_event(&event);
+        handle_key_event(&event); //Handle keypress
       }
 
       previous_packet = packet;
@@ -447,11 +457,16 @@ int main(void)
   }
 
   shutdown(sockfd, SHUT_RDWR);
-  pthread_cancel(network_thread);
-  pthread_join(network_thread, NULL);
   close(sockfd);
+
   libusb_close(keyboard);
   libusb_exit(NULL);
+
+  /* Terminate the network thread */
+  pthread_cancel(network_thread);
+  
+  /* Wait for the network thread to finish */
+  pthread_join(network_thread, NULL);
 
   return 0;
 }
@@ -459,12 +474,11 @@ int main(void)
 static void *network_thread_f(void *ignored)
 {
   char recv_buf[BUFFER_SIZE];
-  ssize_t n;
-
-  (void)ignored;
+  int n;
 
   while ((n = read(sockfd, recv_buf, BUFFER_SIZE - 1)) > 0) {
     recv_buf[n] = '\0';
+    printf("%s", recvBuf);
     chat_print_message(recv_buf);
   }
 

@@ -114,21 +114,21 @@ void fbputs(const char *s, int row, int col)
 
 void draw_underline_cursor_locked(int row, int col)
 {
-  int bpp = BITS_PER_PIXEL / 8;          // should be 4
+  int bpp = BITS_PER_PIXEL / 8;
   int cell_w = FONT_WIDTH * 2;
   int cell_h = FONT_HEIGHT * 2;
 
-  // bottom scanline inside the cell (last row of pixels)
-  int y = (row * cell_h + fb_vinfo.yoffset) + (cell_h - 2); // -2 makes it 2px thick
-  unsigned char *p = framebuffer
-    + y * fb_finfo.line_length
-    + (col * cell_w + fb_vinfo.xoffset) * bpp;
+  int y = (row * cell_h + fb_vinfo.yoffset) + (cell_h - 2); 
+  unsigned char *p = framebuffer + y * fb_finfo.line_length + (col * cell_w + fb_vinfo.xoffset) * bpp;
 
-  // draw a 2-pixel-thick underline
+  //Draw underline
   for (int dy = 0; dy < 2; dy++) {
     unsigned char *q = p + dy * fb_finfo.line_length;
     for (int x = 0; x < cell_w; x++) {
-      q[0] = 255; q[1] = 255; q[2] = 255; q[3] = 0; // white
+      q[0] = 255;
+      q[1] = 255; 
+      q[2] = 255;
+      q[3] = 0;
       q += 4;
     }
   }
