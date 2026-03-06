@@ -359,8 +359,6 @@ static void handle_key_event(const struct key_event *event)
       //Write to socket and check return value for error
       if (write(sockfd, input_buffer, (size_t)input_len) < 0) {
         perror("Send failed");
-      } else if (write(sockfd, "\n", 1) < 0) {
-        perror("Send newline failed");
       } else {
         fprintf(stderr, "Send success\n");
       }
