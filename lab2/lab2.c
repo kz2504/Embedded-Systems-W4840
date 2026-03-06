@@ -359,11 +359,9 @@ static void handle_key_event(const struct key_event *event)
       //Write to socket and check return value for error
       if (write(sockfd, input_buffer, (size_t)input_len) < 0) {
         perror("write");
+      } else {
+        fprintf(stderr, "write sent %zd bytes\n", nw);
       }
-      char local[INPUT_MAX_CHARS + 16];
-      snprintf(local, sizeof(local), "[LOCAL] %s", input_buffer);
-      chat_print_message(local);
-      //chat_print_message(input_buffer);
     }
     //Reset input box to empty
     input_len = 0;
