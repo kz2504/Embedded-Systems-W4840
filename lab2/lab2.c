@@ -358,7 +358,9 @@ static void handle_key_event(const struct key_event *event)
     if (input_len > 0) { //Only send if user inputted something
       //Write to socket and check return value for error
       if (write(sockfd, input_buffer, (size_t)input_len) < 0) {
-        perror("write");
+        perror("Send failed");
+      } (write(sockfd, "\n", 1) < 0) {
+        perror("Send newline failed")
       } else {
         fprintf(stderr, "Send success\n");
       }
