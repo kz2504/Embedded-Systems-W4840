@@ -386,6 +386,7 @@ int main(void)
   struct usb_keyboard_packet packet;
   struct usb_keyboard_packet previous_packet;
   int transferred = 0;
+  char keystate[12];
 
   memset(&packet, 0, sizeof(packet));
   memset(&previous_packet, 0, sizeof(previous_packet));
@@ -473,13 +474,13 @@ int main(void)
 
 static void *network_thread_f(void *ignored)
 {
-  char recv_buf[BUFFER_SIZE];
+  char recvBuf[BUFFER_SIZE];
   int n;
 
-  while ((n = read(sockfd, recv_buf, BUFFER_SIZE - 1)) > 0) {
-    recv_buf[n] = '\0';
+  while ((n = read(sockfd, recvBuf, BUFFER_SIZE - 1)) > 0) {
+    recvBuf[n] = '\0';
     printf("%s", recvBuf);
-    chat_print_message(recv_buf);
+    chat_print_message(recvBuf);
   }
 
   return NULL;
