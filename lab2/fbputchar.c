@@ -112,7 +112,7 @@ void fbputs(const char *s, int row, int col)
   while ((c = *s++) != 0) fbputchar(c, row, col++);
 }
 
-void draw_underline_cursor_locked(int row, int col)
+void draw_underline_cursor(int row, int col)
 {
   int bpp = BITS_PER_PIXEL / 8;
   int cell_w = FONT_WIDTH * 2;

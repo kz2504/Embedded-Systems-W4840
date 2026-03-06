@@ -129,7 +129,7 @@ static void render_input_locked(void)
   //Render cursor with wraparound
   cursor_row = INPUT_START_ROW + cursor_index / SCREEN_COLS;
   cursor_col = cursor_index % SCREEN_COLS;
-  draw_underline_cursor_locked(cursor_row, cursor_col);
+  draw_underline_cursor(cursor_row, cursor_col);
 }
 
 static void init_screen(void)
@@ -360,7 +360,10 @@ static void handle_key_event(const struct key_event *event)
       if (write(sockfd, input_buffer, (size_t)input_len) < 0) {
         perror("write");
       }
-      chat_print_message(input_buffer);
+      char local[INPUT_MAX_CHARS + 16];
+      snprintf(local, sizeof(local), "[LOCAL] %s", input_buffer);
+      chat_print_message(local);
+      //chat_print_message(input_buffer);
     }
     //Reset input box to empty
     input_len = 0;
@@ -380,6 +383,7 @@ static void handle_key_event(const struct key_event *event)
 int main(void)
 {
   int err;
+  int running = 1;
   
   struct sockaddr_in serv_addr;
   
@@ -429,14 +433,14 @@ int main(void)
   pthread_create(&network_thread, NULL, network_thread_f, NULL);
 
   /* Look for and handle keypresses */
-  for (;;) {
+  while (running) {
     libusb_interrupt_transfer(keyboard, endpoint_address,
 			      (unsigned char *) &packet, sizeof(packet),
 			      &transferred, 0);
     if (transferred == (int)sizeof(packet)) {
-      sprintf(keystate, "%02x %02x %02x", packet.modifiers, packet.keycode[0],
-	      packet.keycode[1]);
-      printf("%s\n", keystate);
+      // sprintf(keystate, "%02x %02x %02x", packet.modifiers, packet.keycode[0],
+	    //   packet.keycode[1]);
+      // printf("%s\n", keystate);
 
       for (int i = 0; i < 6; i++) { //Check all 6 keycodes in USB packet
         uint8_t keycode = packet.keycode[i];
@@ -448,6 +452,7 @@ int main(void)
 
         event = decode_key_event(keycode, packet.modifiers); //Decode keypress
         if (event.action == KEY_ESCAPE) {
+          running = 0;
           break; //Terminate if esc pressed
         }
         handle_key_event(&event); //Handle keypress
