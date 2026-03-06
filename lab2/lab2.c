@@ -360,7 +360,7 @@ static void handle_key_event(const struct key_event *event)
       if (write(sockfd, input_buffer, (size_t)input_len) < 0) {
         perror("write");
       } else {
-        printf("Send success");
+        fprintf(stderr, "Send success\n");
       }
     }
     //Reset input box to empty
