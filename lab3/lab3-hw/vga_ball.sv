@@ -205,8 +205,8 @@ module vga_ball(input logic        clk,
   always_comb begin
     {VGA_R, VGA_G, VGA_B} = {8'h0, 8'h0, 8'h0};
     if (VGA_BLANK_n ) begin 
-      if (((hcount[10:1] >= ball_x) && (hcount[10:1] < ball_x + 32)) &&
-        ((vcount >= ball_y) && (vcount < ball_y + 32))) begin
+      if (((hcount[10:1] >= ball_x) && (hcount[10:1] < ball_x + 10'd32)) &&
+        ((vcount >= ball_y) && (vcount < ball_y + 10'd32))) begin
 
         if (BALL_MASK[vcount - ball_y][hcount[10:1] - ball_x]) begin
           VGA_R = BALL_R[vcount - ball_y][hcount[10:1] - ball_x];
