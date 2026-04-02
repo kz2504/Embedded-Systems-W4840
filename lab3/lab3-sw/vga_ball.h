@@ -5,14 +5,14 @@
 #include <linux/types.h>
 
 typedef struct {
-  u16 red, green, blue;
+  __u16 red, green, blue;
 } vga_ball_color_t;
   
 
 typedef struct {
   vga_ball_color_t background;
-  u16 x;
-  u16 y;
+  __u16 x;
+  __u16 y;
 } vga_ball_arg_t;
 
 #define VGA_BALL_MAGIC 'q'
