@@ -215,6 +215,7 @@ module vga_ball(input logic        clk,
         end else begin
           {VGA_R, VGA_G, VGA_B} = {background_r, background_g, background_b};
         end
+        
       end else begin
         {VGA_R, VGA_G, VGA_B} = {background_r, background_g, background_b};
       end
