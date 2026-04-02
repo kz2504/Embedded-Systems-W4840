@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
