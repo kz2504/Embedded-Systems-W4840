@@ -37,8 +37,10 @@
 
 /* Device registers */
 #define BG_RED(x) (x)
-#define BG_GREEN(x) ((x)+1)
-#define BG_BLUE(x) ((x)+2)
+#define BG_GREEN(x) ((x)+2)
+#define BG_BLUE(x) ((x)+4)
+#define BALL_X(x) ((x)+6)
+#define BALL_Y(x) ((x)+8)
 
 /*
  * Information about our device
@@ -47,6 +49,8 @@ struct vga_ball_dev {
 	struct resource res; /* Resource: our registers */
 	void __iomem *virtbase; /* Where registers can be accessed in memory */
         vga_ball_color_t background;
+		uint16_t ball_x;
+		uint16_t ball_y;
 } dev;
 
 /*
@@ -55,10 +59,22 @@ struct vga_ball_dev {
  */
 static void write_background(vga_ball_color_t *background)
 {
-	iowrite8(background->red, BG_RED(dev.virtbase) );
-	iowrite8(background->green, BG_GREEN(dev.virtbase) );
-	iowrite8(background->blue, BG_BLUE(dev.virtbase) );
+	iowrite16(background->red, BG_RED(dev.virtbase) );
+	iowrite16(background->green, BG_GREEN(dev.virtbase) );
+	iowrite16(background->blue, BG_BLUE(dev.virtbase) );
 	dev.background = *background;
+}
+
+static void write_ball_x(uint16_t x)
+{
+	iowrite16(x, BALL_X(dev.virtbase));
+	dev.ball_x = x;
+}
+
+static void write_ball_y(uint16_t y)
+{
+	iowrite16(y, BALL_Y(dev.virtbase));
+	dev.ball_y = y;
 }
 
 /*
@@ -83,6 +99,14 @@ static long vga_ball_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 		if (copy_to_user((vga_ball_arg_t *) arg, &vla,
 				 sizeof(vga_ball_arg_t)))
 			return -EACCES;
+		break;
+
+	case VGA_BALL_WRITE_COORDS:
+		if (copy_from_user(&vla, (vga_ball_arg_t __user *)arg,
+				   sizeof(vga_ball_arg_t)))
+			return -EACCES;
+		write_ball_x(vla.x);
+		write_ball_y(vla.y);
 		break;
 
 	default:
