@@ -2,17 +2,17 @@
 #define _VGA_BALL_H
 
 #include <linux/ioctl.h>
-#include <stdint.h>
+#include <linux/types.h>
 
 typedef struct {
-  uint16_t red, green, blue;
+  u16 red, green, blue;
 } vga_ball_color_t;
   
 
 typedef struct {
   vga_ball_color_t background;
-  uint16_t x;
-  uint16_t y;
+  u16 x;
+  u16 y;
 } vga_ball_arg_t;
 
 #define VGA_BALL_MAGIC 'q'
