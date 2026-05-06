@@ -17,7 +17,7 @@
 #define PIO_DIR 0x04u
 
 #define GPIO_BITS 0xFFu
-#define STEP_US 200000
+#define HALF_PERIOD_US 1000000
 
 static volatile sig_atomic_t stop;
 
@@ -85,23 +85,16 @@ int main(int argc, char **argv)
     *data = old_data & ~GPIO_BITS;
     *dir = old_dir | GPIO_BITS;
 
-    printf("Testing GPIO_1[28:35] through PIO bits [0:7]. Ctrl-C to stop.\n");
+    printf("Toggling GPIO_1[28:35] at 0.5 Hz. Ctrl-C to stop.\n");
 
     for (unsigned c = 0; !stop && (cycles == 0 || c < cycles); c++) {
-        for (unsigned bit = 0; !stop && bit < 8; bit++) {
-            uint32_t mask = 1u << bit;
-            *data = (*data & ~GPIO_BITS) | mask;
-            printf("PIO bit %u -> GPIO_1[%u] high\n", bit, bit + 28);
-            usleep(STEP_US);
-        }
-
         *data = (*data & ~GPIO_BITS) | GPIO_BITS;
         printf("all high\n");
-        usleep(STEP_US);
+        usleep(HALF_PERIOD_US);
 
         *data &= ~GPIO_BITS;
         printf("all low\n");
-        usleep(STEP_US);
+        usleep(HALF_PERIOD_US);
     }
 
     *data = (*data & ~GPIO_BITS) | (old_data & GPIO_BITS);
