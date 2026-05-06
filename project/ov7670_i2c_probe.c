@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -114,6 +115,36 @@ static void print_bus_state(const char *label)
            (data & SCL_BIT) != 0, (data & SDA_BIT) != 0);
 }
 
+static void line_test(void)
+{
+    printf("Open-drain line test. DATA is sampled pin state; DIR 1 drives low.\n");
+
+    sda_high();
+    scl_high();
+    usleep(SCCB_STOP_US);
+    print_bus_state("both released");
+
+    sda_high();
+    scl_low();
+    usleep(SCCB_STOP_US);
+    print_bus_state("SCL driven low, SDA released");
+
+    sda_low();
+    scl_high();
+    usleep(SCCB_STOP_US);
+    print_bus_state("SDA driven low, SCL released");
+
+    sda_low();
+    scl_low();
+    usleep(SCCB_STOP_US);
+    print_bus_state("both driven low");
+
+    sda_high();
+    scl_high();
+    usleep(SCCB_STOP_US);
+    print_bus_state("both released again");
+}
+
 static void recover_bus(void)
 {
     sda_high();
@@ -219,8 +250,28 @@ static int ov7670_read_reg(uint8_t reg, uint8_t *value)
     return ret;
 }
 
-int main(void)
+static void usage(const char *name)
 {
+    fprintf(stderr, "usage: %s [--line-test]\n", name);
+}
+
+int main(int argc, char **argv)
+{
+    int do_line_test = 0;
+
+    if (argc > 2) {
+        usage(argv[0]);
+        return 2;
+    }
+
+    if (argc == 2) {
+        if (strcmp(argv[1], "--line-test") != 0) {
+            usage(argv[0]);
+            return 2;
+        }
+        do_line_test = 1;
+    }
+
     int fd = open("/dev/mem", O_RDWR | O_SYNC);
     if (fd < 0) {
         perror("open /dev/mem");
@@ -244,6 +295,15 @@ int main(void)
     *pio_data = old_data & ~I2C_BITS;
     *pio_dir = old_dir & ~I2C_BITS;
     usleep(SCCB_STOP_US);
+
+    if (do_line_test) {
+        line_test();
+        *pio_data = old_data;
+        *pio_dir = old_dir;
+        munmap(map, LW_BRIDGE_SPAN);
+        close(fd);
+        return 0;
+    }
 
     if (!read_line(SCL_BIT) || !read_line(SDA_BIT)) {
         print_bus_state("released before recovery");
