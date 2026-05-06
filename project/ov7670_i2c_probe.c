@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -106,58 +105,6 @@ static int i2c_stop(void)
     return 0;
 }
 
-static void print_bus_state(const char *label)
-{
-    uint32_t data = *pio_data;
-    uint32_t dir = *pio_dir;
-
-    printf("%s: DATA=0x%08x DIR=0x%08x SCL=%d SDA=%d\n", label, data, dir,
-           (data & SCL_BIT) != 0, (data & SDA_BIT) != 0);
-}
-
-static void line_test(void)
-{
-    printf("Open-drain line test. DATA is sampled pin state; DIR 1 drives low.\n");
-
-    sda_high();
-    scl_high();
-    usleep(SCCB_STOP_US);
-    print_bus_state("both released");
-
-    sda_high();
-    scl_low();
-    usleep(SCCB_STOP_US);
-    print_bus_state("SCL driven low, SDA released");
-
-    sda_low();
-    scl_high();
-    usleep(SCCB_STOP_US);
-    print_bus_state("SDA driven low, SCL released");
-
-    sda_low();
-    scl_low();
-    usleep(SCCB_STOP_US);
-    print_bus_state("both driven low");
-
-    sda_high();
-    scl_high();
-    usleep(SCCB_STOP_US);
-    print_bus_state("both released again");
-}
-
-static void recover_bus(void)
-{
-    sda_high();
-    for (unsigned i = 0; i < 9; i++) {
-        if (scl_high() < 0) {
-            break;
-        }
-        scl_low();
-    }
-    i2c_stop();
-    usleep(SCCB_STOP_US);
-}
-
 static int i2c_write_byte(uint8_t value)
 {
     for (int bit = 7; bit >= 0; bit--) {
@@ -250,28 +197,8 @@ static int ov7670_read_reg(uint8_t reg, uint8_t *value)
     return ret;
 }
 
-static void usage(const char *name)
+int main(void)
 {
-    fprintf(stderr, "usage: %s [--line-test]\n", name);
-}
-
-int main(int argc, char **argv)
-{
-    int do_line_test = 0;
-
-    if (argc > 2) {
-        usage(argv[0]);
-        return 2;
-    }
-
-    if (argc == 2) {
-        if (strcmp(argv[1], "--line-test") != 0) {
-            usage(argv[0]);
-            return 2;
-        }
-        do_line_test = 1;
-    }
-
     int fd = open("/dev/mem", O_RDWR | O_SYNC);
     if (fd < 0) {
         perror("open /dev/mem");
@@ -296,24 +223,8 @@ int main(int argc, char **argv)
     *pio_dir = old_dir & ~I2C_BITS;
     usleep(SCCB_STOP_US);
 
-    if (do_line_test) {
-        line_test();
-        *pio_data = old_data;
-        *pio_dir = old_dir;
-        munmap(map, LW_BRIDGE_SPAN);
-        close(fd);
-        return 0;
-    }
-
     if (!read_line(SCL_BIT) || !read_line(SDA_BIT)) {
-        print_bus_state("released before recovery");
-        recover_bus();
-    }
-
-    if (!read_line(SCL_BIT) || !read_line(SDA_BIT)) {
-        print_bus_state("released after recovery");
-        fprintf(stderr, "I2C lines still not high after release/recovery.\n");
-        fprintf(stderr, "Open-drain mode needs pull-ups: SCL=GPIO_1[22], SDA=GPIO_1[23].\n");
+        fprintf(stderr, "SCL/SDA did not release high; check pull-ups and wiring\n");
         *pio_data = old_data;
         *pio_dir = old_dir;
         munmap(map, LW_BRIDGE_SPAN);
