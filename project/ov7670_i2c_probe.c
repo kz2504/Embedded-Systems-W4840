@@ -105,6 +105,28 @@ static int i2c_stop(void)
     return 0;
 }
 
+static void print_bus_state(const char *label)
+{
+    uint32_t data = *pio_data;
+    uint32_t dir = *pio_dir;
+
+    printf("%s: DATA=0x%08x DIR=0x%08x SCL=%d SDA=%d\n", label, data, dir,
+           (data & SCL_BIT) != 0, (data & SDA_BIT) != 0);
+}
+
+static void recover_bus(void)
+{
+    sda_high();
+    for (unsigned i = 0; i < 9; i++) {
+        if (scl_high() < 0) {
+            break;
+        }
+        scl_low();
+    }
+    i2c_stop();
+    usleep(SCCB_STOP_US);
+}
+
 static int i2c_write_byte(uint8_t value)
 {
     for (int bit = 7; bit >= 0; bit--) {
@@ -224,7 +246,14 @@ int main(void)
     usleep(SCCB_STOP_US);
 
     if (!read_line(SCL_BIT) || !read_line(SDA_BIT)) {
-        fprintf(stderr, "SCL/SDA did not release high; check pull-ups and wiring\n");
+        print_bus_state("released before recovery");
+        recover_bus();
+    }
+
+    if (!read_line(SCL_BIT) || !read_line(SDA_BIT)) {
+        print_bus_state("released after recovery");
+        fprintf(stderr, "I2C lines still not high after release/recovery.\n");
+        fprintf(stderr, "Open-drain mode needs pull-ups: SCL=GPIO_1[22], SDA=GPIO_1[23].\n");
         *pio_data = old_data;
         *pio_dir = old_dir;
         munmap(map, LW_BRIDGE_SPAN);
