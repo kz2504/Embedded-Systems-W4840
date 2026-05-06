@@ -1,5 +1,4 @@
 TARGET := ov7670_i2c_probe
-OLD_TARGETS := pio_gpio_test
 ARGS ?=
 
 ifeq ($(origin CC),default)
@@ -19,4 +18,4 @@ run: $(TARGET)
 	./$(TARGET) $(ARGS)
 
 clean:
-	rm -f $(TARGET) $(OLD_TARGETS)
+	rm -f $(TARGET)
