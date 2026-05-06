@@ -302,6 +302,27 @@ uint8_t sccb_read_byte(int send_ack)
 
 static void print_sccb_line_state(const char *label)
 {
+    uint32_t dr = gpio_read_reg(GPIO_SWPORTA_DR);
+    uint32_t ddr = gpio_read_reg(GPIO_SWPORTA_DDR);
+    uint32_t ext = gpio_read_reg(GPIO_EXT_PORTA);
+
+    printf("  %-24s SIOC ext=%d dr=%d ddr=%d | SIOD ext=%d dr=%d ddr=%d\n",
+           label,
+           (ext & pin_mask(PIN_SIOC)) ? 1 : 0,
+           (dr & pin_mask(PIN_SIOC)) ? 1 : 0,
+           (ddr & pin_mask(PIN_SIOC)) ? 1 : 0,
+           (ext & pin_mask(PIN_SIOD)) ? 1 : 0,
+           (dr & pin_mask(PIN_SIOD)) ? 1 : 0,
+           (ddr & pin_mask(PIN_SIOD)) ? 1 : 0);
+}
+
+static void print_gpio_control_help(void)
+{
+    printf("\nThe SCCB GPIO preflight could not pull SIOC/SIOD low.\n");
+    printf("Because the GPIO output latch and direction bits are set before this check, ");
+    printf("a line that still reads high is usually not under this HPS GPIO controller's control.\n");
+    printf("Check the FPGA/HPS pin mux, the selected GPIO1 bit numbers, and whether another design is driving the pins.\n");
+    printf("The probe is stopping before SCCB register reads because they cannot ACK until SIOC and SIOD can be driven.\n");
     printf("  %-28s SIOC=%d SIOD=%d\n", label,
            gpio_read(PIN_SIOC), gpio_read(PIN_SIOD));
 }
@@ -311,12 +332,14 @@ static int sccb_bus_preflight(void)
     int ok = 1;
 
     printf("SCCB bus preflight on open-drain lines\n");
+    printf("  legend: ext=sampled pin, dr=output latch, ddr=1 means output\n");
 
     sda_release();
     scl_release();
     sccb_delay();
     print_sccb_line_state("released/idling");
     if (!gpio_read(PIN_SIOC) || !gpio_read(PIN_SIOD)) {
+        printf("  warning: released SCCB lines should both read high; check pull-ups and shorts to ground\n");
         printf("  warning: released SCCB lines should both read high; check pull-ups and pin muxing\n");
         ok = 0;
     }
@@ -325,6 +348,7 @@ static int sccb_bus_preflight(void)
     sccb_delay();
     print_sccb_line_state("SIOC driven low");
     if (gpio_read(PIN_SIOC)) {
+        printf("  error: GPIO1[%d] output-low did not reach the sampled SIOC pin\n", PIN_SIOC);
         printf("  warning: SIOC did not read low while driven; check GPIO1[%d] mapping\n", PIN_SIOC);
         ok = 0;
     }
@@ -335,6 +359,7 @@ static int sccb_bus_preflight(void)
     sccb_delay();
     print_sccb_line_state("SIOD driven low");
     if (gpio_read(PIN_SIOD)) {
+        printf("  error: GPIO1[%d] output-low did not reach the sampled SIOD pin\n", PIN_SIOD);
         printf("  warning: SIOD did not read low while driven; check GPIO1[%d] mapping\n", PIN_SIOD);
         ok = 0;
     }
@@ -342,6 +367,9 @@ static int sccb_bus_preflight(void)
     sccb_delay();
 
     print_sccb_line_state("released after test");
+    if (!ok)
+        print_gpio_control_help();
+
     return ok;
 }
 
@@ -573,6 +601,8 @@ int main(int argc, char **argv)
     }
 
     ov7670_power_reset_sequence();
+    if (!sccb_bus_preflight())
+        goto out;
     sccb_bus_preflight();
 
     pid_ok = ov7670_read_reg(OV7670_REG_PID, &pid, &opts);
