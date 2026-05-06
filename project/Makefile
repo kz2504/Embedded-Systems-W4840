@@ -13,7 +13,7 @@ $(TARGET): $(SRC)
 	$(CC) $(CFLAGS) $(SRC) -o $(TARGET) $(LDLIBS)
 
 run: $(TARGET)
-	./$(TARGET)
+	./$(TARGET) $(RUN_ARGS)
 
 clean:
 	rm -f $(TARGET)
