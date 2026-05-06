@@ -1,5 +1,5 @@
-TARGET := pio_gpio_test
-SRC := pio_gpio_test.c
+TARGET := ov7670_i2c_probe
+OLD_TARGETS := pio_gpio_test
 ARGS ?=
 
 ifeq ($(origin CC),default)
@@ -12,11 +12,11 @@ CFLAGS ?= -O2 -Wall -Wextra -std=c11
 
 all: $(TARGET)
 
-$(TARGET): $(SRC)
+$(TARGET): ov7670_i2c_probe.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 run: $(TARGET)
 	./$(TARGET) $(ARGS)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(OLD_TARGETS)
