@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -84,6 +85,45 @@ static int mem_fd = -1;
 static pthread_t xclk_thread;
 static volatile int xclk_running;
 static pthread_mutex_t gpio_lock = PTHREAD_MUTEX_INITIALIZER;
+
+struct probe_options {
+    bool ignore_ack;
+    bool no_xclk;
+};
+
+static void print_usage(const char *prog)
+{
+    printf("Usage: %s [--ignore-ack] [--no-xclk] [--help]\n", prog);
+    printf("  --ignore-ack  Continue through missing SCCB ACK bits and show read data.\n");
+    printf("  --no-xclk     Do not drive GPIO1[%d]; use this when an FPGA/PLL already supplies XCLK.\n",
+           PIN_XCLK);
+    printf("  --help        Show this message.\n");
+}
+
+static int parse_options(int argc, char **argv, struct probe_options *opts)
+{
+    int i;
+
+    opts->ignore_ack = false;
+    opts->no_xclk = false;
+
+    for (i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--ignore-ack") == 0) {
+            opts->ignore_ack = true;
+        } else if (strcmp(argv[i], "--no-xclk") == 0) {
+            opts->no_xclk = true;
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            print_usage(argv[0]);
+            return 0;
+        } else {
+            fprintf(stderr, "Unknown option: %s\n", argv[i]);
+            print_usage(argv[0]);
+            return -1;
+        }
+    }
+
+    return 1;
+}
 
 static inline uint32_t pin_mask(unsigned pin)
 {
@@ -259,23 +299,108 @@ uint8_t sccb_read_byte(int send_ack)
     return value;
 }
 
-static int write_stage(uint8_t byte, const char *stage)
+
+static void print_sccb_line_state(const char *label)
+{
+    uint32_t dr = gpio_read_reg(GPIO_SWPORTA_DR);
+    uint32_t ddr = gpio_read_reg(GPIO_SWPORTA_DDR);
+    uint32_t ext = gpio_read_reg(GPIO_EXT_PORTA);
+
+    printf("  %-24s SIOC ext=%d dr=%d ddr=%d | SIOD ext=%d dr=%d ddr=%d\n",
+           label,
+           (ext & pin_mask(PIN_SIOC)) ? 1 : 0,
+           (dr & pin_mask(PIN_SIOC)) ? 1 : 0,
+           (ddr & pin_mask(PIN_SIOC)) ? 1 : 0,
+           (ext & pin_mask(PIN_SIOD)) ? 1 : 0,
+           (dr & pin_mask(PIN_SIOD)) ? 1 : 0,
+           (ddr & pin_mask(PIN_SIOD)) ? 1 : 0);
+}
+
+static void print_gpio_control_help(void)
+{
+    printf("\nThe SCCB GPIO preflight could not pull SIOC/SIOD low.\n");
+    printf("The preflight rows above already show the sampled pin value (ext), ");
+    printf("output latch (dr), and direction bit (ddr) for each line.\n");
+    printf("If ddr=1 and dr=0 but ext remains 1, the selected GPIO1 bit is not ");
+    printf("controlling the external pin. Check the FPGA/HPS pin mux, GPIO bit ");
+    printf("numbers, and whether another design is driving the pins.\n");
+    printf("The probe is stopping before SCCB register reads because they cannot ACK until SIOC and SIOD can be driven.\n");
+}
+
+static int sccb_bus_preflight(void)
+{
+    int ok = 1;
+
+    printf("SCCB bus preflight on open-drain lines\n");
+    printf("  legend: ext=sampled pin, dr=output latch, ddr=1 means output\n");
+
+    sda_release();
+    scl_release();
+    sccb_delay();
+    print_sccb_line_state("released/idling");
+    if (!gpio_read(PIN_SIOC) || !gpio_read(PIN_SIOD)) {
+        printf("  warning: released SCCB lines should both read high; check pull-ups and shorts to ground\n");
+        ok = 0;
+    }
+
+    scl_drive_low();
+    sccb_delay();
+    print_sccb_line_state("SIOC driven low");
+    if (gpio_read(PIN_SIOC)) {
+        printf("  error: GPIO1[%d] output-low did not reach the sampled SIOC pin\n", PIN_SIOC);
+        ok = 0;
+    }
+    scl_release();
+    sccb_delay();
+
+    sda_drive_low();
+    sccb_delay();
+    print_sccb_line_state("SIOD driven low");
+    if (gpio_read(PIN_SIOD)) {
+        printf("  error: GPIO1[%d] output-low did not reach the sampled SIOD pin\n", PIN_SIOD);
+        ok = 0;
+    }
+    sda_release();
+    sccb_delay();
+
+    print_sccb_line_state("released after test");
+    if (!ok)
+        print_gpio_control_help();
+
+    return ok;
+}
+
+static void print_no_ack_help(void)
+{
+    printf("\nNo SCCB ACK was observed. Check the following on the DE1-SoC/OV7670 wiring:\n");
+    printf("  * SIOC/SIOD must have pull-ups to the camera I/O voltage; this code only drives them low.\n");
+    printf("  * PWDN must be low and RST/RESET must be high at the OV7670 pins.\n");
+    printf("  * The camera normally needs a real MHz-range XCLK; GPIO userspace XCLK is only a slow sanity signal.\n");
+    printf("    If FPGA logic supplies XCLK, rerun with --no-xclk so this program does not fight that clock.\n");
+    printf("  * Confirm the header-to-GPIO mapping for GPIO1[%d]=SIOC, GPIO1[%d]=SIOD, GPIO1[%d]=PWDN, GPIO1[%d]=RST.\n",
+           PIN_SIOC, PIN_SIOD, PIN_PWDN, PIN_RST);
+    printf("  * If your module behaves like SCCB without driving ACK, rerun with --ignore-ack to attempt a best-effort read.\n");
+}
+
+static int write_stage(uint8_t byte, const char *stage, const struct probe_options *opts)
 {
     int ack = sccb_write_byte(byte);
 
-    printf("%s: wrote 0x%02X, %s\n", stage, byte, ack ? "ACK received" : "NO ACK");
-    return ack;
+    printf("%s: wrote 0x%02X, %s%s\n",
+           stage, byte, ack ? "ACK received" : "NO ACK",
+           (!ack && opts->ignore_ack) ? " (continuing)" : "");
+    return ack || opts->ignore_ack;
 }
 
-int ov7670_write_reg(uint8_t reg, uint8_t value)
+int ov7670_write_reg(uint8_t reg, uint8_t value, const struct probe_options *opts)
 {
     int ok = 1;
 
     printf("SCCB write reg 0x%02X <- 0x%02X\n", reg, value);
     sccb_start();
-    ok &= write_stage(OV7670_ADDR_WR, "  slave write address 0x42");
-    ok &= write_stage(reg, "  register index");
-    ok &= write_stage(value, "  register value");
+    ok &= write_stage(OV7670_ADDR_WR, "  slave write address 0x42", opts);
+    ok &= write_stage(reg, "  register index", opts);
+    ok &= write_stage(value, "  register value", opts);
     sccb_stop();
 
     if (!ok)
@@ -284,15 +409,15 @@ int ov7670_write_reg(uint8_t reg, uint8_t value)
     return ok;
 }
 
-int ov7670_read_reg(uint8_t reg, uint8_t *value)
+int ov7670_read_reg(uint8_t reg, uint8_t *value, const struct probe_options *opts)
 {
     int ok = 1;
 
     printf("SCCB read reg 0x%02X\n", reg);
 
     sccb_start();
-    ok &= write_stage(OV7670_ADDR_WR, "  phase 1 slave write address 0x42");
-    ok &= write_stage(reg, "  phase 1 register index");
+    ok &= write_stage(OV7670_ADDR_WR, "  phase 1 slave write address 0x42", opts);
+    ok &= write_stage(reg, "  phase 1 register index", opts);
     sccb_stop();
 
     if (!ok) {
@@ -301,7 +426,7 @@ int ov7670_read_reg(uint8_t reg, uint8_t *value)
     }
 
     sccb_start();
-    ok &= write_stage(OV7670_ADDR_RD, "  phase 2 slave read address 0x43");
+    ok &= write_stage(OV7670_ADDR_RD, "  phase 2 slave read address 0x43", opts);
 
     if (!ok) {
         sccb_stop();
@@ -391,7 +516,7 @@ static void stop_xclk(void)
     }
 }
 
-static void init_gpio_lines(void)
+static void init_gpio_lines(const struct probe_options *opts)
 {
     /*
      * Put SCL/SDA output latches low before any direction changes. Releasing
@@ -408,13 +533,17 @@ static void init_gpio_lines(void)
     gpio_write(PIN_RST, 1);
     gpio_set_output(PIN_RST);
 
-    gpio_write(PIN_XCLK, 0);
-    gpio_set_output(PIN_XCLK);
+    if (!opts->no_xclk) {
+        gpio_write(PIN_XCLK, 0);
+        gpio_set_output(PIN_XCLK);
+    } else {
+        gpio_set_input(PIN_XCLK);
+    }
 }
 
 static void ov7670_power_reset_sequence(void)
 {
-    printf("Waiting %.0f ms with slow XCLK running\n", STARTUP_XCLK_US / 1000.0);
+    printf("Waiting %.0f ms before enabling OV7670\n", STARTUP_XCLK_US / 1000.0);
     usleep(STARTUP_XCLK_US);
 
     printf("Driving PWDN low to enable OV7670\n");
@@ -431,13 +560,21 @@ static void ov7670_power_reset_sequence(void)
     usleep(AFTER_RESET_US);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    struct probe_options opts;
     uint8_t pid = 0;
     uint8_t ver = 0;
     int pid_ok;
     int ver_ok;
     int exit_code = EXIT_FAILURE;
+    int parse_result;
+
+    parse_result = parse_options(argc, argv, &opts);
+    if (parse_result <= 0)
+        return parse_result == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+
+    setvbuf(stdout, NULL, _IOLBF, 0);
 
     printf("OV7670 SCCB probe using GPIO1 pins\n");
     printf("GPIO1 base 0x%lX, OV7670 7-bit address 0x%02X\n",
@@ -446,18 +583,26 @@ int main(void)
     if (!map_gpio1())
         return EXIT_FAILURE;
 
-    init_gpio_lines();
+    init_gpio_lines(&opts);
 
-    if (!start_xclk())
-        goto out;
+    if (!opts.no_xclk) {
+        if (!start_xclk())
+            goto out;
 
-    printf("Slow test XCLK running on GPIO1[%d], about %u Hz\n",
-           PIN_XCLK, 1000000u / (2u * XCLK_HALF_PERIOD_US));
+        printf("Slow test XCLK running on GPIO1[%d], about %u Hz\n",
+               PIN_XCLK, 1000000u / (2u * XCLK_HALF_PERIOD_US));
+        printf("Note: OV7670 designs usually need a MHz-range XCLK for normal operation; ");
+        printf("use --no-xclk if your FPGA already drives XCLK.\n");
+    } else {
+        printf("Not driving GPIO1[%d] XCLK because --no-xclk was specified\n", PIN_XCLK);
+    }
 
     ov7670_power_reset_sequence();
+    if (!sccb_bus_preflight())
+        goto out;
 
-    pid_ok = ov7670_read_reg(OV7670_REG_PID, &pid);
-    ver_ok = ov7670_read_reg(OV7670_REG_VER, &ver);
+    pid_ok = ov7670_read_reg(OV7670_REG_PID, &pid, &opts);
+    ver_ok = ov7670_read_reg(OV7670_REG_VER, &ver, &opts);
 
     printf("\nProbe results:\n");
     if (pid_ok)
@@ -471,8 +616,12 @@ int main(void)
     else
         printf("  VER register 0x0B read failed\n");
 
-    if (pid_ok && ver_ok)
+    if (pid_ok && ver_ok && pid == 0x76)
         exit_code = EXIT_SUCCESS;
+    else if (!pid_ok || !ver_ok)
+        print_no_ack_help();
+    else
+        printf("Unexpected PID value; verify the camera model and SCCB wiring/clocking.\n");
 
 out:
     stop_xclk();
@@ -483,8 +632,10 @@ out:
      */
     gpio_set_input(PIN_SIOC);
     gpio_set_input(PIN_SIOD);
-    gpio_write(PIN_XCLK, 0);
-    gpio_set_output(PIN_XCLK);
+    if (!opts.no_xclk) {
+        gpio_write(PIN_XCLK, 0);
+        gpio_set_output(PIN_XCLK);
+    }
 
     unmap_gpio1();
     return exit_code;
