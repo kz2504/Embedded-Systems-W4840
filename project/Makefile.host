@@ -1,0 +1,19 @@
+TARGET := serial_frame_decode
+LOG ?= screenlog.0
+OUT ?= decoded_frames
+
+CC ?= cc
+CFLAGS ?= -O2 -Wall -Wextra -std=c11
+
+.PHONY: all decode clean
+
+all: $(TARGET)
+
+$(TARGET): serial_frame_decode.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+decode: $(TARGET)
+	./$(TARGET) $(LOG) $(OUT)
+
+clean:
+	rm -f $(TARGET)

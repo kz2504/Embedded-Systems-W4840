@@ -23,7 +23,7 @@
 #define WORDS (PIXELS / 4)
 #define DONE_TIMEOUT_MS 5000
 #define CLEAR_TIMEOUT_MS 100
-#define FRAME_COUNT 10
+#define FRAME_COUNT 1
 #define NAME_LEN 256
 #define PGM_HEADER_LEN 32
 
