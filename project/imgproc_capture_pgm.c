@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 
 #define IMGPROC_BASE 0xFF200000u
@@ -25,6 +26,8 @@
 int main(int argc, char **argv)
 {
     const char *prefix = "frame";
+    long run_time = (long)time(NULL);
+    long pid = (long)getpid();
 
     if (argc > 2) {
         fprintf(stderr, "usage: %s [output_prefix]\n", argv[0]);
@@ -52,7 +55,8 @@ int main(int argc, char **argv)
 
     for (unsigned frame = 0; frame < FRAME_COUNT; frame++) {
         char path[NAME_LEN];
-        int name_len = snprintf(path, sizeof(path), "%s_%03u.pgm", prefix, frame);
+        int name_len = snprintf(path, sizeof(path), "%s_%ld_%ld_%03u.pgm",
+                                prefix, run_time, pid, frame);
 
         if (name_len < 0 || (size_t)name_len >= sizeof(path)) {
             fprintf(stderr, "output filename too long\n");
@@ -126,7 +130,8 @@ int main(int argc, char **argv)
     munmap(map, IMGPROC_SPAN);
     close(fd);
 
-    printf("wrote %u frames as %s_000.pgm .. %s_%03u.pgm\n",
-           FRAME_COUNT, prefix, prefix, FRAME_COUNT - 1);
+    printf("wrote %u frames as %s_%ld_%ld_000.pgm .. %s_%ld_%ld_%03u.pgm\n",
+           FRAME_COUNT, prefix, run_time, pid, prefix, run_time, pid,
+           FRAME_COUNT - 1);
     return 0;
 }
