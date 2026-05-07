@@ -1,4 +1,4 @@
-TARGET := ov7670_i2c_probe
+TARGETS := ov7670_i2c_probe imgproc_scan_control
 ARGS ?=
 
 ifeq ($(origin CC),default)
@@ -9,13 +9,19 @@ CFLAGS ?= -O2 -Wall -Wextra -std=c11
 
 .PHONY: all run clean
 
-all: $(TARGET)
+all: $(TARGETS)
 
-$(TARGET): ov7670_i2c_probe.c
+ov7670_i2c_probe: ov7670_i2c_probe.c
 	$(CC) $(CFLAGS) -o $@ $<
 
-run: $(TARGET)
-	./$(TARGET) $(ARGS)
+imgproc_scan_control: imgproc_scan_control.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+run: ov7670_i2c_probe
+	./ov7670_i2c_probe $(ARGS)
+
+scan-control: imgproc_scan_control
+	./imgproc_scan_control
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGETS)
