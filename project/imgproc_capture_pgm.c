@@ -17,6 +17,7 @@
 #define HEIGHT 240
 #define PIXELS (WIDTH * HEIGHT)
 #define WORDS (PIXELS / 4)
+#define DONE_TIMEOUT_MS 5000
 
 int main(int argc, char **argv)
 {
@@ -46,11 +47,22 @@ int main(int argc, char **argv)
 
     volatile uint32_t *regs = (volatile uint32_t *)map;
 
+    printf("CONTROL before arm: 0x%08x\n", regs[IMGPROC_CONTROL]);
     regs[IMGPROC_CONTROL] = 0;
+    printf("CONTROL after arm:  0x%08x\n", regs[IMGPROC_CONTROL]);
     printf("capture armed; waiting for DONE\n");
-    while ((regs[IMGPROC_CONTROL] & 1u) == 0) {
+
+    for (unsigned ms = 0; (regs[IMGPROC_CONTROL] & 1u) == 0; ms++) {
+        if (ms >= DONE_TIMEOUT_MS) {
+            fprintf(stderr, "timeout waiting for DONE; CONTROL=0x%08x\n",
+                    regs[IMGPROC_CONTROL]);
+            munmap(map, IMGPROC_SPAN);
+            close(fd);
+            return 1;
+        }
         usleep(1000);
     }
+
     printf("capture done; writing %s\n", path);
 
     FILE *out = fopen(path, "wb");

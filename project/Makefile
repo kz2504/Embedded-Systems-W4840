@@ -7,7 +7,7 @@ endif
 
 CFLAGS ?= -O2 -Wall -Wextra -std=c11
 
-.PHONY: all run clean
+.PHONY: all run scan-control capture clean
 
 all: $(TARGETS)
 
