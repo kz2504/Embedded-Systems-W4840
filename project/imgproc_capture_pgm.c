@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <sys/mman.h>
 #include <time.h>
 #include <unistd.h>
@@ -25,16 +26,24 @@
 
 int main(int argc, char **argv)
 {
-    const char *prefix = "frame";
+    const char *out_dir = ".";
     long run_time = (long)time(NULL);
     long pid = (long)getpid();
 
     if (argc > 2) {
-        fprintf(stderr, "usage: %s [output_prefix]\n", argv[0]);
+        fprintf(stderr, "usage: %s [output_dir]\n", argv[0]);
         return 2;
     }
     if (argc == 2) {
-        prefix = argv[1];
+        out_dir = argv[1];
+    }
+
+    if (mkdir(out_dir, 0777) < 0) {
+        struct stat st;
+        if (stat(out_dir, &st) < 0 || !S_ISDIR(st.st_mode)) {
+            perror("mkdir output_dir");
+            return 1;
+        }
     }
 
     int fd = open("/dev/mem", O_RDWR | O_SYNC);
@@ -55,8 +64,8 @@ int main(int argc, char **argv)
 
     for (unsigned frame = 0; frame < FRAME_COUNT; frame++) {
         char path[NAME_LEN];
-        int name_len = snprintf(path, sizeof(path), "%s_%ld_%ld_%03u.pgm",
-                                prefix, run_time, pid, frame);
+        int name_len = snprintf(path, sizeof(path), "%s/frame_%ld_%ld_%03u.pgm",
+                                out_dir, run_time, pid, frame);
 
         if (name_len < 0 || (size_t)name_len >= sizeof(path)) {
             fprintf(stderr, "output filename too long\n");
@@ -130,8 +139,9 @@ int main(int argc, char **argv)
     munmap(map, IMGPROC_SPAN);
     close(fd);
 
-    printf("wrote %u frames as %s_%ld_%ld_000.pgm .. %s_%ld_%ld_%03u.pgm\n",
-           FRAME_COUNT, prefix, run_time, pid, prefix, run_time, pid,
+    printf("wrote %u frames as %s/frame_%ld_%ld_000.pgm .. "
+           "%s/frame_%ld_%ld_%03u.pgm\n",
+           FRAME_COUNT, out_dir, run_time, pid, out_dir, run_time, pid,
            FRAME_COUNT - 1);
     return 0;
 }
