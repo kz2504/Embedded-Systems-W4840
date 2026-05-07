@@ -1,20 +1,39 @@
-CC ?= gcc
-CFLAGS ?= -Wall -Wextra -O2
-LDFLAGS ?= -pthread
-TARGET = ov7670_sccb_probe
-SRC = probe.c
-.PHONY: all run run-tmp debug-xclk clean
-all: $(TARGET)
-$(TARGET): $(SRC)
-	$(CC) $(CFLAGS) $(SRC) -o $(TARGET) $(LDFLAGS)
-	chmod +x $(TARGET)
-run: $(TARGET)
-	sudo ./$(TARGET)
-run-tmp: $(TARGET)
-	cp $(TARGET) /tmp/$(TARGET)
-	chmod +x /tmp/$(TARGET)
-	sudo /tmp/$(TARGET)
-debug-xclk: $(TARGET)
-	sudo ./$(TARGET) --gpio-xclk
+TARGETS := ov7670_i2c_probe imgproc_scan_control imgproc_capture_pgm
+ARGS ?=
+
+ifeq ($(origin CC),default)
+CC := $(CROSS_COMPILE)gcc
+endif
+
+CFLAGS ?= -O2 -Wall -Wextra -std=c11
+
+.PHONY: all run scan-control capture serial-capture host-decode clean
+
+all: $(TARGETS)
+
+ov7670_i2c_probe: ov7670_i2c_probe.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+imgproc_scan_control: imgproc_scan_control.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+imgproc_capture_pgm: imgproc_capture_pgm.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+run: ov7670_i2c_probe
+	./ov7670_i2c_probe $(ARGS)
+
+scan-control: imgproc_scan_control
+	./imgproc_scan_control
+
+capture: imgproc_capture_pgm
+	./imgproc_capture_pgm $(ARGS)
+
+serial-capture: imgproc_capture_pgm
+	./imgproc_capture_pgm --serial
+
+host-decode: serial_frame_decode.c
+	$(CC) $(CFLAGS) -o serial_frame_decode serial_frame_decode.c
+
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGETS) serial_frame_decode
