@@ -1,6 +1,5 @@
 TARGETS := ov7670_i2c_probe imgproc_scan_control imgproc_capture_pgm
 ARGS ?=
-USB_DIR ?= /mnt/usb
 
 ifeq ($(origin CC),default)
 CC := $(CROSS_COMPILE)gcc
@@ -8,7 +7,7 @@ endif
 
 CFLAGS ?= -O2 -Wall -Wextra -std=c11
 
-.PHONY: all run scan-control capture capture-usb clean
+.PHONY: all run scan-control capture serial-capture host-decode clean
 
 all: $(TARGETS)
 
@@ -30,8 +29,11 @@ scan-control: imgproc_scan_control
 capture: imgproc_capture_pgm
 	./imgproc_capture_pgm $(ARGS)
 
-capture-usb: imgproc_capture_pgm
-	./imgproc_capture_pgm $(USB_DIR)/frames
+serial-capture: imgproc_capture_pgm
+	./imgproc_capture_pgm --serial
+
+host-decode: serial_frame_decode.c
+	$(CC) $(CFLAGS) -o serial_frame_decode serial_frame_decode.c
 
 clean:
-	rm -f $(TARGETS)
+	rm -f $(TARGETS) serial_frame_decode
