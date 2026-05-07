@@ -19,17 +19,19 @@
 #define WORDS (PIXELS / 4)
 #define DONE_TIMEOUT_MS 5000
 #define CLEAR_TIMEOUT_MS 100
+#define FRAME_COUNT 10
+#define NAME_LEN 256
 
 int main(int argc, char **argv)
 {
-    const char *path = "frame.pgm";
+    const char *prefix = "frame";
 
     if (argc > 2) {
-        fprintf(stderr, "usage: %s [output.pgm]\n", argv[0]);
+        fprintf(stderr, "usage: %s [output_prefix]\n", argv[0]);
         return 2;
     }
     if (argc == 2) {
-        path = argv[1];
+        prefix = argv[1];
     }
 
     int fd = open("/dev/mem", O_RDWR | O_SYNC);
@@ -48,69 +50,83 @@ int main(int argc, char **argv)
 
     volatile uint32_t *regs = (volatile uint32_t *)map;
 
-    printf("CONTROL before arm: 0x%08x\n", regs[IMGPROC_CONTROL]);
-    regs[IMGPROC_CONTROL] = 0;
-    for (unsigned ms = 0; (regs[IMGPROC_CONTROL] & 1u) != 0; ms++) {
-        if (ms >= CLEAR_TIMEOUT_MS) {
-            fprintf(stderr, "timeout clearing DONE; CONTROL=0x%08x\n",
-                    regs[IMGPROC_CONTROL]);
+    for (unsigned frame = 0; frame < FRAME_COUNT; frame++) {
+        char path[NAME_LEN];
+        int name_len = snprintf(path, sizeof(path), "%s_%03u.pgm", prefix, frame);
+
+        if (name_len < 0 || (size_t)name_len >= sizeof(path)) {
+            fprintf(stderr, "output filename too long\n");
             munmap(map, IMGPROC_SPAN);
             close(fd);
             return 1;
         }
-        usleep(1000);
-    }
-    printf("CONTROL after arm:  0x%08x\n", regs[IMGPROC_CONTROL]);
-    printf("capture armed; waiting for DONE\n");
 
-    for (unsigned ms = 0; (regs[IMGPROC_CONTROL] & 1u) == 0; ms++) {
-        if (ms >= DONE_TIMEOUT_MS) {
-            fprintf(stderr, "timeout waiting for DONE; CONTROL=0x%08x\n",
-                    regs[IMGPROC_CONTROL]);
+        printf("frame %u: CONTROL before arm: 0x%08x\n", frame,
+               regs[IMGPROC_CONTROL]);
+        regs[IMGPROC_CONTROL] = 0;
+        for (unsigned ms = 0; (regs[IMGPROC_CONTROL] & 1u) != 0; ms++) {
+            if (ms >= CLEAR_TIMEOUT_MS) {
+                fprintf(stderr, "frame %u: timeout clearing DONE; CONTROL=0x%08x\n",
+                        frame, regs[IMGPROC_CONTROL]);
+                munmap(map, IMGPROC_SPAN);
+                close(fd);
+                return 1;
+            }
+            usleep(1000);
+        }
+        printf("frame %u: capture armed; waiting for DONE\n", frame);
+
+        for (unsigned ms = 0; (regs[IMGPROC_CONTROL] & 1u) == 0; ms++) {
+            if (ms >= DONE_TIMEOUT_MS) {
+                fprintf(stderr, "frame %u: timeout waiting for DONE; CONTROL=0x%08x\n",
+                        frame, regs[IMGPROC_CONTROL]);
+                munmap(map, IMGPROC_SPAN);
+                close(fd);
+                return 1;
+            }
+            usleep(1000);
+        }
+
+        printf("frame %u: capture done; writing %s\n", frame, path);
+
+        FILE *out = fopen(path, "wb");
+        if (!out) {
+            perror("fopen output");
             munmap(map, IMGPROC_SPAN);
             close(fd);
             return 1;
         }
-        usleep(1000);
-    }
 
-    printf("capture done; writing %s\n", path);
+        fprintf(out, "P5\n%d %d\n255\n", WIDTH, HEIGHT);
 
-    FILE *out = fopen(path, "wb");
-    if (!out) {
-        perror("fopen output");
-        munmap(map, IMGPROC_SPAN);
-        close(fd);
-        return 1;
-    }
+        for (uint32_t i = 0; i < WORDS; i++) {
+            uint32_t word;
+            unsigned char pixels[4];
 
-    fprintf(out, "P5\n%d %d\n255\n", WIDTH, HEIGHT);
+            regs[IMGPROC_INDEX] = i;
+            word = regs[IMGPROC_DATA];
 
-    for (uint32_t i = 0; i < WORDS; i++) {
-        uint32_t word;
-        unsigned char pixels[4];
+            pixels[0] = (unsigned char)((word >> 0) & 0xffu);
+            pixels[1] = (unsigned char)((word >> 8) & 0xffu);
+            pixels[2] = (unsigned char)((word >> 16) & 0xffu);
+            pixels[3] = (unsigned char)((word >> 24) & 0xffu);
 
-        regs[IMGPROC_INDEX] = i;
-        word = regs[IMGPROC_DATA];
-
-        pixels[0] = (unsigned char)((word >> 0) & 0xffu);
-        pixels[1] = (unsigned char)((word >> 8) & 0xffu);
-        pixels[2] = (unsigned char)((word >> 16) & 0xffu);
-        pixels[3] = (unsigned char)((word >> 24) & 0xffu);
-
-        if (fwrite(pixels, 1, sizeof(pixels), out) != sizeof(pixels)) {
-            perror("write output");
-            fclose(out);
-            munmap(map, IMGPROC_SPAN);
-            close(fd);
-            return 1;
+            if (fwrite(pixels, 1, sizeof(pixels), out) != sizeof(pixels)) {
+                perror("write output");
+                fclose(out);
+                munmap(map, IMGPROC_SPAN);
+                close(fd);
+                return 1;
+            }
         }
+
+        fclose(out);
     }
 
-    fclose(out);
     munmap(map, IMGPROC_SPAN);
     close(fd);
 
-    printf("wrote %d x %d grayscale PGM: %s\n", WIDTH, HEIGHT, path);
+    printf("wrote %u frames as %s_000.pgm .. %s_%03u.pgm\n",
+           FRAME_COUNT, prefix, prefix, FRAME_COUNT - 1);
     return 0;
 }
