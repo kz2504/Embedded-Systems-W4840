@@ -18,6 +18,7 @@
 #define PIXELS (WIDTH * HEIGHT)
 #define WORDS (PIXELS / 4)
 #define DONE_TIMEOUT_MS 5000
+#define CLEAR_TIMEOUT_MS 100
 
 int main(int argc, char **argv)
 {
@@ -49,6 +50,16 @@ int main(int argc, char **argv)
 
     printf("CONTROL before arm: 0x%08x\n", regs[IMGPROC_CONTROL]);
     regs[IMGPROC_CONTROL] = 0;
+    for (unsigned ms = 0; (regs[IMGPROC_CONTROL] & 1u) != 0; ms++) {
+        if (ms >= CLEAR_TIMEOUT_MS) {
+            fprintf(stderr, "timeout clearing DONE; CONTROL=0x%08x\n",
+                    regs[IMGPROC_CONTROL]);
+            munmap(map, IMGPROC_SPAN);
+            close(fd);
+            return 1;
+        }
+        usleep(1000);
+    }
     printf("CONTROL after arm:  0x%08x\n", regs[IMGPROC_CONTROL]);
     printf("capture armed; waiting for DONE\n");
 

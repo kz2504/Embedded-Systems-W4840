@@ -52,7 +52,6 @@
 #define COM8_FASTAEC 0x80u
 #define COM8_AECSTEP 0x40u
 #define COM8_AEC 0x01u
-#define COM10_PCLK_HB 0x20u
 #define COM14_DCWEN 0x10u
 #define COM15_FULL_RANGE 0xc0u
 #define TSLB_FIXED_UV 0x10u
@@ -89,7 +88,7 @@ static const struct camera_reg grayscale_qvga_regs[] = {
     {"COM13", REG_COM13, 0x00, 0xff},
     {"RGB444", REG_RGB444, 0x00, 0xff},
     {"COM15", REG_COM15, COM15_FULL_RANGE, 0xff},
-    {"COM10", REG_COM10, COM10_PCLK_HB, 0xff},
+    {"COM10", REG_COM10, 0x00, 0xff},
     {"COM8", REG_COM8, COM8_FASTAEC | COM8_AECSTEP | COM8_AEC, 0xff},
 };
 
