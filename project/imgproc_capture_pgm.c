@@ -17,41 +17,38 @@
 #define IMGPROC_INDEX 1
 #define IMGPROC_DATA 2
 
-#define WIDTH 320
-#define HEIGHT 240
+#define WIDTH 640
+#define HEIGHT 480
 #define PIXELS (WIDTH * HEIGHT)
 #define WORDS (PIXELS / 4)
 #define DONE_TIMEOUT_MS 5000
 #define CLEAR_TIMEOUT_MS 100
-#define FRAME_COUNT 1
 #define NAME_LEN 256
 #define PGM_HEADER_LEN 32
 
 static const char b64[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-static int capture_frame(volatile uint32_t *regs, unsigned frame,
-                         unsigned char *pixels)
+static int capture_frame(volatile uint32_t *regs, unsigned char *pixels)
 {
-    printf("frame %u: CONTROL before arm: 0x%08x\n", frame,
-           regs[IMGPROC_CONTROL]);
+    printf("CONTROL before arm: 0x%08x\n", regs[IMGPROC_CONTROL]);
     regs[IMGPROC_CONTROL] = 0;
 
     for (unsigned ms = 0; (regs[IMGPROC_CONTROL] & 1u) != 0; ms++) {
         if (ms >= CLEAR_TIMEOUT_MS) {
-            fprintf(stderr, "frame %u: timeout clearing DONE; CONTROL=0x%08x\n",
-                    frame, regs[IMGPROC_CONTROL]);
+            fprintf(stderr, "timeout clearing DONE; CONTROL=0x%08x\n",
+                    regs[IMGPROC_CONTROL]);
             return -1;
         }
         usleep(1000);
     }
 
-    printf("frame %u: capture armed; waiting for DONE\n", frame);
+    printf("capture armed; waiting for DONE\n");
 
     for (unsigned ms = 0; (regs[IMGPROC_CONTROL] & 1u) == 0; ms++) {
         if (ms >= DONE_TIMEOUT_MS) {
-            fprintf(stderr, "frame %u: timeout waiting for DONE; CONTROL=0x%08x\n",
-                    frame, regs[IMGPROC_CONTROL]);
+            fprintf(stderr, "timeout waiting for DONE; CONTROL=0x%08x\n",
+                    regs[IMGPROC_CONTROL]);
             return -1;
         }
         usleep(1000);
@@ -125,14 +122,13 @@ static void base64_write(FILE *out, const unsigned char *data, size_t len)
     }
 }
 
-static int serial_write_pgm(unsigned frame, long run_time, long pid,
-                            const unsigned char *pixels)
+static int serial_write_pgm(long run_time, long pid, const unsigned char *pixels)
 {
     char name[NAME_LEN];
     char header[PGM_HEADER_LEN];
     unsigned char *pgm;
-    int name_len = snprintf(name, sizeof(name), "frame_%ld_%ld_%03u.pgm",
-                            run_time, pid, frame);
+    int name_len = snprintf(name, sizeof(name), "frame_%ld_%ld.pgm",
+                            run_time, pid);
     int header_len = snprintf(header, sizeof(header), "P5\n%d %d\n255\n",
                               WIDTH, HEIGHT);
 
@@ -150,9 +146,9 @@ static int serial_write_pgm(unsigned frame, long run_time, long pid,
     memcpy(pgm, header, (size_t)header_len);
     memcpy(pgm + header_len, pixels, PIXELS);
 
-    printf("BEGIN_FRAME %u %s\n", frame, name);
+    printf("BEGIN_FRAME 0 %s\n", name);
     base64_write(stdout, pgm, (size_t)header_len + PIXELS);
-    printf("END_FRAME %u\n", frame);
+    printf("END_FRAME 0\n");
     fflush(stdout);
     free(pgm);
     return 0;
@@ -211,50 +207,40 @@ int main(int argc, char **argv)
 
     volatile uint32_t *regs = (volatile uint32_t *)map;
 
-    if (serial_mode) {
-        printf("BEGIN_DE1_FRAMES %u %d %d\n", FRAME_COUNT, WIDTH, HEIGHT);
+    char path[NAME_LEN];
+    int name_len = snprintf(path, sizeof(path), "%s/frame_%ld_%ld.pgm",
+                            out_dir, run_time, pid);
+
+    if (!serial_mode && (name_len < 0 || (size_t)name_len >= sizeof(path))) {
+        fprintf(stderr, "output filename too long\n");
+        munmap(map, IMGPROC_SPAN);
+        close(fd);
+        free(pixels);
+        return 1;
     }
 
-    for (unsigned frame = 0; frame < FRAME_COUNT; frame++) {
-        char path[NAME_LEN];
-        int name_len = snprintf(path, sizeof(path), "%s/frame_%ld_%ld_%03u.pgm",
-                                out_dir, run_time, pid, frame);
+    if (capture_frame(regs, pixels) < 0) {
+        munmap(map, IMGPROC_SPAN);
+        close(fd);
+        free(pixels);
+        return 1;
+    }
 
-        if (!serial_mode && (name_len < 0 || (size_t)name_len >= sizeof(path))) {
-            fprintf(stderr, "output filename too long\n");
+    if (serial_mode) {
+        if (serial_write_pgm(run_time, pid, pixels) < 0) {
             munmap(map, IMGPROC_SPAN);
             close(fd);
             free(pixels);
             return 1;
         }
-
-        if (capture_frame(regs, frame, pixels) < 0) {
+    } else {
+        printf("capture done; writing %s\n", path);
+        if (write_pgm_file(path, pixels) < 0) {
             munmap(map, IMGPROC_SPAN);
             close(fd);
             free(pixels);
             return 1;
         }
-
-        if (serial_mode) {
-            if (serial_write_pgm(frame, run_time, pid, pixels) < 0) {
-                munmap(map, IMGPROC_SPAN);
-                close(fd);
-                free(pixels);
-                return 1;
-            }
-        } else {
-            printf("frame %u: capture done; writing %s\n", frame, path);
-            if (write_pgm_file(path, pixels) < 0) {
-                munmap(map, IMGPROC_SPAN);
-                close(fd);
-                free(pixels);
-                return 1;
-            }
-        }
-    }
-
-    if (serial_mode) {
-        printf("END_DE1_FRAMES\n");
     }
 
     munmap(map, IMGPROC_SPAN);
@@ -262,10 +248,7 @@ int main(int argc, char **argv)
     free(pixels);
 
     if (!serial_mode) {
-        printf("wrote %u frames as %s/frame_%ld_%ld_000.pgm .. "
-               "%s/frame_%ld_%ld_%03u.pgm\n",
-               FRAME_COUNT, out_dir, run_time, pid, out_dir, run_time, pid,
-               FRAME_COUNT - 1);
+        printf("wrote %d x %d grayscale PGM: %s\n", WIDTH, HEIGHT, path);
     }
     return 0;
 }

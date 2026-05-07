@@ -40,26 +40,20 @@
 #define REG_COM15 0x40u
 #define REG_MANU 0x67u
 #define REG_MANV 0x68u
-#define REG_SCALING_XSC 0x70u
-#define REG_SCALING_YSC 0x71u
-#define REG_SCALING_DCWCTR 0x72u
-#define REG_SCALING_PCLK_DIV 0x73u
 #define REG_RGB444 0x8cu
 
 #define COM7_RESET 0x80u
-#define COM7_QVGA 0x10u
 #define COM7_YUV 0x00u
 #define COM8_FASTAEC 0x80u
 #define COM8_AECSTEP 0x40u
 #define COM8_AEC 0x01u
-#define COM14_DCWEN 0x10u
 #define COM15_FULL_RANGE 0xc0u
 #define TSLB_FIXED_UV 0x10u
 
 #define I2C_DELAY_US 5
 #define SCCB_STOP_US 1000
 #define DEFAULT_GAIN 0x20u
-#define QVGA_VREF_LOW_BITS 0x0au
+#define VGA_VREF_LOW_BITS 0x0au
 
 struct camera_reg {
     const char *name;
@@ -68,18 +62,14 @@ struct camera_reg {
     uint8_t mask;
 };
 
-static const struct camera_reg grayscale_qvga_regs[] = {
+static const struct camera_reg grayscale_vga_regs[] = {
     {"CLKRC", REG_CLKRC, 0x01, 0xff},
-    {"COM7", REG_COM7, COM7_QVGA | COM7_YUV, 0xff},
-    {"COM3", REG_COM3, 0x04, 0xff},
-    {"COM14", REG_COM14, COM14_DCWEN | 0x09, 0xff},
-    {"SCALING_XSC", REG_SCALING_XSC, 0x3a, 0xff},
-    {"SCALING_YSC", REG_SCALING_YSC, 0x35, 0xff},
-    {"SCALING_DCWCTR", REG_SCALING_DCWCTR, 0x11, 0xff},
-    {"SCALING_PCLK_DIV", REG_SCALING_PCLK_DIV, 0xf1, 0xff},
-    {"HSTART", REG_HSTART, 0x16, 0xff},
-    {"HSTOP", REG_HSTOP, 0x04, 0xff},
-    {"HREF", REG_HREF, 0xa4, 0xff},
+    {"COM7", REG_COM7, COM7_YUV, 0xff},
+    {"COM3", REG_COM3, 0x00, 0xff},
+    {"COM14", REG_COM14, 0x00, 0xff},
+    {"HSTART", REG_HSTART, 0x13, 0xff},
+    {"HSTOP", REG_HSTOP, 0x01, 0xff},
+    {"HREF", REG_HREF, 0xb6, 0xff},
     {"VSTART", REG_VSTART, 0x02, 0xff},
     {"VSTOP", REG_VSTOP, 0x7a, 0xff},
     {"TSLB", REG_TSLB, TSLB_FIXED_UV, 0xff},
@@ -311,10 +301,10 @@ static int ov7670_set_gain(unsigned gain)
     if (ret < 0) {
         return ret;
     }
-    return ov7670_write_reg(REG_VREF, (uint8_t)(QVGA_VREF_LOW_BITS | high));
+    return ov7670_write_reg(REG_VREF, (uint8_t)(VGA_VREF_LOW_BITS | high));
 }
 
-static int ov7670_configure_grayscale_qvga(unsigned gain)
+static int ov7670_configure_grayscale_vga(unsigned gain)
 {
     int ret;
 
@@ -324,9 +314,9 @@ static int ov7670_configure_grayscale_qvga(unsigned gain)
     }
     usleep(10000);
 
-    ret = ov7670_write_table(grayscale_qvga_regs,
-                             sizeof(grayscale_qvga_regs) /
-                                 sizeof(grayscale_qvga_regs[0]));
+    ret = ov7670_write_table(grayscale_vga_regs,
+                             sizeof(grayscale_vga_regs) /
+                                 sizeof(grayscale_vga_regs[0]));
     if (ret < 0) {
         return ret;
     }
@@ -351,19 +341,19 @@ static int ov7670_verify_reg(const char *name, uint8_t reg, uint8_t expected,
     return pass ? 0 : -1;
 }
 
-static int ov7670_verify_grayscale_qvga(unsigned gain)
+static int ov7670_verify_grayscale_vga(unsigned gain)
 {
     unsigned failures = 0;
     uint8_t gain_low = (uint8_t)(gain & 0xffu);
     uint8_t gain_high = (uint8_t)(((gain >> 8) & 0x03u) << 6);
-    uint8_t vref = (uint8_t)(QVGA_VREF_LOW_BITS | gain_high);
+    uint8_t vref = (uint8_t)(VGA_VREF_LOW_BITS | gain_high);
 
     printf("Verifying OV7670 register readback before capture:\n");
 
-    for (size_t i = 0; i < sizeof(grayscale_qvga_regs) /
-                               sizeof(grayscale_qvga_regs[0]);
+    for (size_t i = 0; i < sizeof(grayscale_vga_regs) /
+                               sizeof(grayscale_vga_regs[0]);
          i++) {
-        const struct camera_reg *v = &grayscale_qvga_regs[i];
+        const struct camera_reg *v = &grayscale_vga_regs[i];
         if (ov7670_verify_reg(v->name, v->reg, v->val, v->mask) < 0) {
             failures++;
         }
@@ -461,9 +451,9 @@ int main(int argc, char **argv)
     int ret_verify = 0;
 
     if (ret_pid == 0 && ret_ver == 0) {
-        ret_cfg = ov7670_configure_grayscale_qvga(gain);
+        ret_cfg = ov7670_configure_grayscale_vga(gain);
         if (ret_cfg == 0) {
-            ret_verify = ov7670_verify_grayscale_qvga(gain);
+            ret_verify = ov7670_verify_grayscale_vga(gain);
         }
     }
 
@@ -481,7 +471,7 @@ int main(int argc, char **argv)
     }
 
     if (ret_cfg < 0) {
-        fprintf(stderr, "OV7670 grayscale QVGA configuration failed: ret=%d\n",
+        fprintf(stderr, "OV7670 grayscale VGA configuration failed: ret=%d\n",
                 ret_cfg);
         fprintf(stderr, "ret=-1 means SCL stuck low, ret=-2 means no ACK\n");
         return 1;
@@ -491,7 +481,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    printf("OV7670 PID=0x%02x VER=0x%02x configured grayscale QVGA, gain=0x%03x\n",
+    printf("OV7670 PID=0x%02x VER=0x%02x configured grayscale VGA, gain=0x%03x\n",
            pid, ver, gain);
     return 0;
 }
