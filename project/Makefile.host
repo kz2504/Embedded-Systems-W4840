@@ -14,6 +14,7 @@ $(TARGET): serial_frame_decode.c
 
 decode: $(TARGET)
 	./$(TARGET) $(LOG) $(OUT)
+	rm -f $(LOG)
 
 clean:
 	rm -f $(TARGET)
