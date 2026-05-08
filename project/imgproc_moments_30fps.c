@@ -31,12 +31,12 @@
 #define THRESH_MASK 0xffu
 
 #define CLEAR_TIMEOUT_MS 100
-#define DONE_TIMEOUT_MS 100
+#define DONE_TIMEOUT_MS 1000
 #define FRAME_US 33333
 
-static int wait_clear(volatile uint32_t *regs, uint32_t bit, const char *name)
+static int wait_clear(volatile uint32_t *regs, uint32_t bits, const char *name)
 {
-    for (unsigned ms = 0; (regs[IMG_DONE] & bit) != 0; ms++) {
+    for (unsigned ms = 0; (regs[IMG_DONE] & bits) != 0; ms++) {
         if (ms >= CLEAR_TIMEOUT_MS) {
             fprintf(stderr, "%s: timeout clearing DONE; DONE=0x%08x\n",
                     name, regs[IMG_DONE]);
@@ -47,9 +47,9 @@ static int wait_clear(volatile uint32_t *regs, uint32_t bit, const char *name)
     return 0;
 }
 
-static int wait_done(volatile uint32_t *regs, uint32_t bit, const char *name)
+static int wait_done(volatile uint32_t *regs, uint32_t bits, const char *name)
 {
-    for (unsigned ms = 0; (regs[IMG_DONE] & bit) == 0; ms++) {
+    for (unsigned ms = 0; (regs[IMG_DONE] & bits) != bits; ms++) {
         if (ms >= DONE_TIMEOUT_MS) {
             fprintf(stderr, "%s: timeout waiting for DONE; DONE=0x%08x\n",
                     name, regs[IMG_DONE]);
@@ -129,23 +129,33 @@ int main(int argc, char **argv)
     printf("areaA,uA,vA,areaB,uB,vB,done\n");
 
     while (1) {
-        regs[IMG_DONE] = ~DONE_A;
-        regs[IMG_DONE] = ~DONE_B;
+        uint32_t area_a;
+        uint32_t u_a;
+        uint32_t v_a;
+        uint32_t area_b;
+        uint32_t u_b;
+        uint32_t v_b;
 
+        regs[IMG_DONE] = ~DONE_A;
         if (wait_clear(regs, DONE_A, "camera A") < 0 ||
-            wait_clear(regs, DONE_B, "camera B") < 0) {
+            wait_done(regs, DONE_A, "camera A") < 0) {
             break;
         }
+        area_a = regs[IMG_AREA_A];
+        u_a = regs[IMG_U_A];
+        v_a = regs[IMG_V_A];
 
-        if (wait_done(regs, DONE_A, "camera A") < 0 ||
+        regs[IMG_DONE] = ~DONE_B;
+        if (wait_clear(regs, DONE_B, "camera B") < 0 ||
             wait_done(regs, DONE_B, "camera B") < 0) {
             break;
         }
+        area_b = regs[IMG_AREA_B];
+        u_b = regs[IMG_U_B];
+        v_b = regs[IMG_V_B];
 
         printf("%u,%u,%u,%u,%u,%u,0x%08x\n",
-               regs[IMG_AREA_A], regs[IMG_U_A], regs[IMG_V_A],
-               regs[IMG_AREA_B], regs[IMG_U_B], regs[IMG_V_B],
-               regs[IMG_DONE]);
+               area_a, u_a, v_a, area_b, u_b, v_b, regs[IMG_DONE]);
         fflush(stdout);
 
         usleep(FRAME_US);
