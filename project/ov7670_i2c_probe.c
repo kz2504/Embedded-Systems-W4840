@@ -64,7 +64,7 @@ struct camera_reg {
 };
 
 static const struct camera_reg grayscale_vga_regs[] = {
-    {"CLKRC", REG_CLKRC, 0x01, 0xff},
+    {"CLKRC", REG_CLKRC, 0x40, 0x7f},
     {"COM7", REG_COM7, COM7_YUV, 0xff},
     {"COM3", REG_COM3, 0x00, 0xff},
     {"COM14", REG_COM14, 0x00, 0xff},
