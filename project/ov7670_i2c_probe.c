@@ -11,12 +11,13 @@
 #define LW_BRIDGE_BASE 0xFF200000u
 #define LW_BRIDGE_SPAN 0x1000u
 
-#define GPIO1_I2C_OFFSET 0x40u
+#define GPIO0_I2C_OFFSET 0x120u
+#define GPIO1_I2C_OFFSET 0x160u
 #define PIO_DATA 0x00u
 #define PIO_DIR 0x04u
 
-#define SCL_BIT (1u << 0) /* GPIO_1[22] */
-#define SDA_BIT (1u << 1) /* GPIO_1[23] */
+#define SCL_BIT (1u << 0)
+#define SDA_BIT (1u << 1)
 #define I2C_BITS (SCL_BIT | SDA_BIT)
 
 #define OV7670_ADDR 0x21u
@@ -397,9 +398,83 @@ static void usage(const char *name)
             DEFAULT_GAIN);
 }
 
+static int configure_camera(void *map, uint32_t i2c_offset, const char *label,
+                            unsigned gain)
+{
+    uint32_t old_data;
+    uint32_t old_dir;
+    uint8_t pid = 0;
+    uint8_t ver = 0;
+    int ret_pid;
+    int ret_ver;
+    int ret_cfg = 0;
+    int ret_verify = 0;
+    int failed = 0;
+
+    printf("\nConfiguring %s\n", label);
+
+    pio_data = (volatile uint32_t *)((uint8_t *)map + i2c_offset + PIO_DATA);
+    pio_dir = (volatile uint32_t *)((uint8_t *)map + i2c_offset + PIO_DIR);
+
+    old_data = *pio_data;
+    old_dir = *pio_dir;
+
+    *pio_data = old_data & ~I2C_BITS;
+    *pio_dir = old_dir & ~I2C_BITS;
+    usleep(SCCB_STOP_US);
+
+    if (!read_line(SCL_BIT) || !read_line(SDA_BIT)) {
+        fprintf(stderr, "%s: SCL/SDA did not release high; check pull-ups and wiring\n",
+                label);
+        failed = 1;
+        goto out;
+    }
+
+    ret_pid = ov7670_read_reg(REG_PID, &pid);
+    ret_ver = ov7670_read_reg(REG_VER, &ver);
+
+    if (ret_pid == 0 && ret_ver == 0) {
+        ret_cfg = ov7670_configure_grayscale_vga(gain);
+        if (ret_cfg == 0) {
+            ret_verify = ov7670_verify_grayscale_vga(gain);
+        }
+    }
+
+    if (ret_pid < 0 || ret_ver < 0) {
+        fprintf(stderr, "%s: OV7670 read failed: PID ret=%d, VER ret=%d\n",
+                label, ret_pid, ret_ver);
+        fprintf(stderr, "ret=-1 means SCL stuck low, ret=-2 means no ACK\n");
+        failed = 1;
+        goto out;
+    }
+
+    if (ret_cfg < 0) {
+        fprintf(stderr, "%s: OV7670 grayscale VGA configuration failed: ret=%d\n",
+                label, ret_cfg);
+        fprintf(stderr, "ret=-1 means SCL stuck low, ret=-2 means no ACK\n");
+        failed = 1;
+        goto out;
+    }
+
+    if (ret_verify < 0) {
+        failed = 1;
+        goto out;
+    }
+
+    printf("%s: OV7670 PID=0x%02x VER=0x%02x configured grayscale VGA, gain=0x%03x\n",
+           label, pid, ver, gain);
+
+out:
+    i2c_stop();
+    *pio_data = old_data;
+    *pio_dir = old_dir;
+    return failed ? -1 : 0;
+}
+
 int main(int argc, char **argv)
 {
     unsigned gain = DEFAULT_GAIN;
+    int failed = 0;
 
     if (argc > 2) {
         usage(argv[0]);
@@ -424,64 +499,15 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    pio_data = (volatile uint32_t *)((uint8_t *)map + GPIO1_I2C_OFFSET + PIO_DATA);
-    pio_dir = (volatile uint32_t *)((uint8_t *)map + GPIO1_I2C_OFFSET + PIO_DIR);
-
-    uint32_t old_data = *pio_data;
-    uint32_t old_dir = *pio_dir;
-
-    *pio_data = old_data & ~I2C_BITS;
-    *pio_dir = old_dir & ~I2C_BITS;
-    usleep(SCCB_STOP_US);
-
-    if (!read_line(SCL_BIT) || !read_line(SDA_BIT)) {
-        fprintf(stderr, "SCL/SDA did not release high; check pull-ups and wiring\n");
-        *pio_data = old_data;
-        *pio_dir = old_dir;
-        munmap(map, LW_BRIDGE_SPAN);
-        close(fd);
-        return 1;
+    if (configure_camera(map, GPIO0_I2C_OFFSET, "camera A (GPIO0)", gain) < 0) {
+        failed = 1;
+    }
+    if (configure_camera(map, GPIO1_I2C_OFFSET, "camera B (GPIO1)", gain) < 0) {
+        failed = 1;
     }
 
-    uint8_t pid = 0;
-    uint8_t ver = 0;
-    int ret_pid = ov7670_read_reg(REG_PID, &pid);
-    int ret_ver = ov7670_read_reg(REG_VER, &ver);
-    int ret_cfg = 0;
-    int ret_verify = 0;
-
-    if (ret_pid == 0 && ret_ver == 0) {
-        ret_cfg = ov7670_configure_grayscale_vga(gain);
-        if (ret_cfg == 0) {
-            ret_verify = ov7670_verify_grayscale_vga(gain);
-        }
-    }
-
-    i2c_stop();
-    *pio_data = old_data;
-    *pio_dir = old_dir;
     munmap(map, LW_BRIDGE_SPAN);
     close(fd);
 
-    if (ret_pid < 0 || ret_ver < 0) {
-        fprintf(stderr, "OV7670 read failed: PID ret=%d, VER ret=%d\n",
-                ret_pid, ret_ver);
-        fprintf(stderr, "ret=-1 means SCL stuck low, ret=-2 means no ACK\n");
-        return 1;
-    }
-
-    if (ret_cfg < 0) {
-        fprintf(stderr, "OV7670 grayscale VGA configuration failed: ret=%d\n",
-                ret_cfg);
-        fprintf(stderr, "ret=-1 means SCL stuck low, ret=-2 means no ACK\n");
-        return 1;
-    }
-
-    if (ret_verify < 0) {
-        return 1;
-    }
-
-    printf("OV7670 PID=0x%02x VER=0x%02x configured grayscale VGA, gain=0x%03x\n",
-           pid, ver, gain);
-    return 0;
+    return failed ? 1 : 0;
 }

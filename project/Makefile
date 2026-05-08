@@ -1,5 +1,6 @@
 TARGETS := ov7670_i2c_probe imgproc_scan_control imgproc_capture_pgm
 ARGS ?=
+CAM ?= A
 
 ifeq ($(origin CC),default)
 CC := $(CROSS_COMPILE)gcc
@@ -27,10 +28,10 @@ scan-control: imgproc_scan_control
 	./imgproc_scan_control
 
 capture: imgproc_capture_pgm
-	./imgproc_capture_pgm $(ARGS)
+	./imgproc_capture_pgm $(CAM) $(ARGS)
 
 serial-capture: imgproc_capture_pgm
-	./imgproc_capture_pgm --serial
+	./imgproc_capture_pgm $(CAM) --serial
 
 host-decode: serial_frame_decode.c
 	$(CC) $(CFLAGS) -o serial_frame_decode serial_frame_decode.c
