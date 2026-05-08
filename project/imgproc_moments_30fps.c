@@ -32,8 +32,8 @@
 #define THRESH_B_SHIFT 16
 #define THRESH_MASK 0xffu
 
-#define CLEAR_TIMEOUT_MS 100
-#define DONE_TIMEOUT_MS 1000
+#define CLEAR_TIMEOUT_POLLS 10000000u
+#define DONE_TIMEOUT_POLLS 100000000u
 #define NS_PER_SEC 1000000000.0
 #define PRINT_EVERY 30
 
@@ -44,26 +44,24 @@ static void clear_done(volatile uint32_t *regs, uint32_t bits)
 
 static int wait_clear(volatile uint32_t *regs, uint32_t bits, const char *name)
 {
-    for (unsigned ms = 0; (regs[IMG_DONE] & bits) != 0; ms++) {
-        if (ms >= CLEAR_TIMEOUT_MS) {
+    for (unsigned polls = 0; (regs[IMG_DONE] & bits) != 0; polls++) {
+        if (polls >= CLEAR_TIMEOUT_POLLS) {
             fprintf(stderr, "%s: timeout clearing DONE; DONE=0x%08x\n",
                     name, regs[IMG_DONE]);
             return -1;
         }
-        usleep(1000);
     }
     return 0;
 }
 
 static int wait_done(volatile uint32_t *regs, uint32_t bits, const char *name)
 {
-    for (unsigned ms = 0; (regs[IMG_DONE] & bits) != bits; ms++) {
-        if (ms >= DONE_TIMEOUT_MS) {
+    for (unsigned polls = 0; (regs[IMG_DONE] & bits) != bits; polls++) {
+        if (polls >= DONE_TIMEOUT_POLLS) {
             fprintf(stderr, "%s: timeout waiting for DONE; DONE=0x%08x\n",
                     name, regs[IMG_DONE]);
             return -1;
         }
-        usleep(1000);
     }
     return 0;
 }
