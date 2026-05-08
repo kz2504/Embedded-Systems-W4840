@@ -33,8 +33,8 @@
 
 #define CLEAR_TIMEOUT_MS 100
 #define DONE_TIMEOUT_MS 1000
-#define FRAME_US 33333
 #define NS_PER_SEC 1000000000.0
+#define PRINT_EVERY 30
 
 static int wait_clear(volatile uint32_t *regs, uint32_t bits, const char *name)
 {
@@ -126,6 +126,7 @@ int main(int argc, char **argv)
     volatile uint32_t *regs = (volatile uint32_t *)map;
     struct timespec last_print;
     int have_last_print = 0;
+    unsigned sample = 0;
 
     regs[IMG_CONTROL] =
         (regs[IMG_CONTROL] &
@@ -165,24 +166,26 @@ int main(int argc, char **argv)
         u_b = regs[IMG_U_B];
         v_b = regs[IMG_V_B];
 
-        struct timespec now;
-        double hz = 0.0;
+        sample++;
 
-        clock_gettime(CLOCK_MONOTONIC, &now);
-        if (have_last_print) {
-            double dt = elapsed_seconds(&last_print, &now);
-            if (dt > 0.0) {
-                hz = 1.0 / dt;
+        if (sample % PRINT_EVERY == 0) {
+            struct timespec now;
+            double hz = 0.0;
+
+            clock_gettime(CLOCK_MONOTONIC, &now);
+            if (have_last_print) {
+                double dt = elapsed_seconds(&last_print, &now);
+                if (dt > 0.0) {
+                    hz = (double)PRINT_EVERY / dt;
+                }
             }
+            last_print = now;
+            have_last_print = 1;
+
+            printf("%u,%u,%u,%u,%u,%u,0x%08x,%.2f\n",
+                   area_a, u_a, v_a, area_b, u_b, v_b, regs[IMG_DONE], hz);
+            fflush(stdout);
         }
-        last_print = now;
-        have_last_print = 1;
-
-        printf("%u,%u,%u,%u,%u,%u,0x%08x,%.2f\n",
-               area_a, u_a, v_a, area_b, u_b, v_b, regs[IMG_DONE], hz);
-        fflush(stdout);
-
-        usleep(FRAME_US);
     }
 
     munmap(map, IMGPROC_SPAN);
