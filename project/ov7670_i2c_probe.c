@@ -11,12 +11,13 @@
 #define LW_BRIDGE_BASE 0xFF200000u
 #define LW_BRIDGE_SPAN 0x1000u
 
-#define GPIO1_I2C_OFFSET 0x40u
+#define GPIO0_I2C_OFFSET 0x120u
+#define GPIO1_I2C_OFFSET 0x160u
 #define PIO_DATA 0x00u
 #define PIO_DIR 0x04u
 
-#define SCL_BIT (1u << 0) /* GPIO_1[22] */
-#define SDA_BIT (1u << 1) /* GPIO_1[23] */
+#define SCL_BIT (1u << 0)
+#define SDA_BIT (1u << 1)
 #define I2C_BITS (SCL_BIT | SDA_BIT)
 
 #define OV7670_ADDR 0x21u
@@ -40,26 +41,20 @@
 #define REG_COM15 0x40u
 #define REG_MANU 0x67u
 #define REG_MANV 0x68u
-#define REG_SCALING_XSC 0x70u
-#define REG_SCALING_YSC 0x71u
-#define REG_SCALING_DCWCTR 0x72u
-#define REG_SCALING_PCLK_DIV 0x73u
 #define REG_RGB444 0x8cu
 
 #define COM7_RESET 0x80u
-#define COM7_QVGA 0x10u
 #define COM7_YUV 0x00u
 #define COM8_FASTAEC 0x80u
 #define COM8_AECSTEP 0x40u
 #define COM8_AEC 0x01u
-#define COM14_DCWEN 0x10u
 #define COM15_FULL_RANGE 0xc0u
 #define TSLB_FIXED_UV 0x10u
 
 #define I2C_DELAY_US 5
 #define SCCB_STOP_US 1000
 #define DEFAULT_GAIN 0x20u
-#define QVGA_VREF_LOW_BITS 0x0au
+#define VGA_VREF_LOW_BITS 0x0au
 
 struct camera_reg {
     const char *name;
@@ -68,18 +63,14 @@ struct camera_reg {
     uint8_t mask;
 };
 
-static const struct camera_reg grayscale_qvga_regs[] = {
-    {"CLKRC", REG_CLKRC, 0x01, 0xff},
-    {"COM7", REG_COM7, COM7_QVGA | COM7_YUV, 0xff},
-    {"COM3", REG_COM3, 0x04, 0xff},
-    {"COM14", REG_COM14, COM14_DCWEN | 0x09, 0xff},
-    {"SCALING_XSC", REG_SCALING_XSC, 0x3a, 0xff},
-    {"SCALING_YSC", REG_SCALING_YSC, 0x35, 0xff},
-    {"SCALING_DCWCTR", REG_SCALING_DCWCTR, 0x11, 0xff},
-    {"SCALING_PCLK_DIV", REG_SCALING_PCLK_DIV, 0xf1, 0xff},
-    {"HSTART", REG_HSTART, 0x16, 0xff},
-    {"HSTOP", REG_HSTOP, 0x04, 0xff},
-    {"HREF", REG_HREF, 0xa4, 0xff},
+static const struct camera_reg grayscale_vga_regs[] = {
+    {"CLKRC", REG_CLKRC, 0x40, 0x7f},
+    {"COM7", REG_COM7, COM7_YUV, 0xff},
+    {"COM3", REG_COM3, 0x00, 0xff},
+    {"COM14", REG_COM14, 0x00, 0xff},
+    {"HSTART", REG_HSTART, 0x13, 0xff},
+    {"HSTOP", REG_HSTOP, 0x01, 0xff},
+    {"HREF", REG_HREF, 0xb6, 0xff},
     {"VSTART", REG_VSTART, 0x02, 0xff},
     {"VSTOP", REG_VSTOP, 0x7a, 0xff},
     {"TSLB", REG_TSLB, TSLB_FIXED_UV, 0xff},
@@ -311,10 +302,10 @@ static int ov7670_set_gain(unsigned gain)
     if (ret < 0) {
         return ret;
     }
-    return ov7670_write_reg(REG_VREF, (uint8_t)(QVGA_VREF_LOW_BITS | high));
+    return ov7670_write_reg(REG_VREF, (uint8_t)(VGA_VREF_LOW_BITS | high));
 }
 
-static int ov7670_configure_grayscale_qvga(unsigned gain)
+static int ov7670_configure_grayscale_vga(unsigned gain)
 {
     int ret;
 
@@ -324,9 +315,9 @@ static int ov7670_configure_grayscale_qvga(unsigned gain)
     }
     usleep(10000);
 
-    ret = ov7670_write_table(grayscale_qvga_regs,
-                             sizeof(grayscale_qvga_regs) /
-                                 sizeof(grayscale_qvga_regs[0]));
+    ret = ov7670_write_table(grayscale_vga_regs,
+                             sizeof(grayscale_vga_regs) /
+                                 sizeof(grayscale_vga_regs[0]));
     if (ret < 0) {
         return ret;
     }
@@ -351,19 +342,19 @@ static int ov7670_verify_reg(const char *name, uint8_t reg, uint8_t expected,
     return pass ? 0 : -1;
 }
 
-static int ov7670_verify_grayscale_qvga(unsigned gain)
+static int ov7670_verify_grayscale_vga(unsigned gain)
 {
     unsigned failures = 0;
     uint8_t gain_low = (uint8_t)(gain & 0xffu);
     uint8_t gain_high = (uint8_t)(((gain >> 8) & 0x03u) << 6);
-    uint8_t vref = (uint8_t)(QVGA_VREF_LOW_BITS | gain_high);
+    uint8_t vref = (uint8_t)(VGA_VREF_LOW_BITS | gain_high);
 
     printf("Verifying OV7670 register readback before capture:\n");
 
-    for (size_t i = 0; i < sizeof(grayscale_qvga_regs) /
-                               sizeof(grayscale_qvga_regs[0]);
+    for (size_t i = 0; i < sizeof(grayscale_vga_regs) /
+                               sizeof(grayscale_vga_regs[0]);
          i++) {
-        const struct camera_reg *v = &grayscale_qvga_regs[i];
+        const struct camera_reg *v = &grayscale_vga_regs[i];
         if (ov7670_verify_reg(v->name, v->reg, v->val, v->mask) < 0) {
             failures++;
         }
@@ -407,9 +398,83 @@ static void usage(const char *name)
             DEFAULT_GAIN);
 }
 
+static int configure_camera(void *map, uint32_t i2c_offset, const char *label,
+                            unsigned gain)
+{
+    uint32_t old_data;
+    uint32_t old_dir;
+    uint8_t pid = 0;
+    uint8_t ver = 0;
+    int ret_pid;
+    int ret_ver;
+    int ret_cfg = 0;
+    int ret_verify = 0;
+    int failed = 0;
+
+    printf("\nConfiguring %s\n", label);
+
+    pio_data = (volatile uint32_t *)((uint8_t *)map + i2c_offset + PIO_DATA);
+    pio_dir = (volatile uint32_t *)((uint8_t *)map + i2c_offset + PIO_DIR);
+
+    old_data = *pio_data;
+    old_dir = *pio_dir;
+
+    *pio_data = old_data & ~I2C_BITS;
+    *pio_dir = old_dir & ~I2C_BITS;
+    usleep(SCCB_STOP_US);
+
+    if (!read_line(SCL_BIT) || !read_line(SDA_BIT)) {
+        fprintf(stderr, "%s: SCL/SDA did not release high; check pull-ups and wiring\n",
+                label);
+        failed = 1;
+        goto out;
+    }
+
+    ret_pid = ov7670_read_reg(REG_PID, &pid);
+    ret_ver = ov7670_read_reg(REG_VER, &ver);
+
+    if (ret_pid == 0 && ret_ver == 0) {
+        ret_cfg = ov7670_configure_grayscale_vga(gain);
+        if (ret_cfg == 0) {
+            ret_verify = ov7670_verify_grayscale_vga(gain);
+        }
+    }
+
+    if (ret_pid < 0 || ret_ver < 0) {
+        fprintf(stderr, "%s: OV7670 read failed: PID ret=%d, VER ret=%d\n",
+                label, ret_pid, ret_ver);
+        fprintf(stderr, "ret=-1 means SCL stuck low, ret=-2 means no ACK\n");
+        failed = 1;
+        goto out;
+    }
+
+    if (ret_cfg < 0) {
+        fprintf(stderr, "%s: OV7670 grayscale VGA configuration failed: ret=%d\n",
+                label, ret_cfg);
+        fprintf(stderr, "ret=-1 means SCL stuck low, ret=-2 means no ACK\n");
+        failed = 1;
+        goto out;
+    }
+
+    if (ret_verify < 0) {
+        failed = 1;
+        goto out;
+    }
+
+    printf("%s: OV7670 PID=0x%02x VER=0x%02x configured grayscale VGA, gain=0x%03x\n",
+           label, pid, ver, gain);
+
+out:
+    i2c_stop();
+    *pio_data = old_data;
+    *pio_dir = old_dir;
+    return failed ? -1 : 0;
+}
+
 int main(int argc, char **argv)
 {
     unsigned gain = DEFAULT_GAIN;
+    int failed = 0;
 
     if (argc > 2) {
         usage(argv[0]);
@@ -434,64 +499,15 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    pio_data = (volatile uint32_t *)((uint8_t *)map + GPIO1_I2C_OFFSET + PIO_DATA);
-    pio_dir = (volatile uint32_t *)((uint8_t *)map + GPIO1_I2C_OFFSET + PIO_DIR);
-
-    uint32_t old_data = *pio_data;
-    uint32_t old_dir = *pio_dir;
-
-    *pio_data = old_data & ~I2C_BITS;
-    *pio_dir = old_dir & ~I2C_BITS;
-    usleep(SCCB_STOP_US);
-
-    if (!read_line(SCL_BIT) || !read_line(SDA_BIT)) {
-        fprintf(stderr, "SCL/SDA did not release high; check pull-ups and wiring\n");
-        *pio_data = old_data;
-        *pio_dir = old_dir;
-        munmap(map, LW_BRIDGE_SPAN);
-        close(fd);
-        return 1;
+    if (configure_camera(map, GPIO0_I2C_OFFSET, "camera A (GPIO0)", gain) < 0) {
+        failed = 1;
+    }
+    if (configure_camera(map, GPIO1_I2C_OFFSET, "camera B (GPIO1)", gain) < 0) {
+        failed = 1;
     }
 
-    uint8_t pid = 0;
-    uint8_t ver = 0;
-    int ret_pid = ov7670_read_reg(REG_PID, &pid);
-    int ret_ver = ov7670_read_reg(REG_VER, &ver);
-    int ret_cfg = 0;
-    int ret_verify = 0;
-
-    if (ret_pid == 0 && ret_ver == 0) {
-        ret_cfg = ov7670_configure_grayscale_qvga(gain);
-        if (ret_cfg == 0) {
-            ret_verify = ov7670_verify_grayscale_qvga(gain);
-        }
-    }
-
-    i2c_stop();
-    *pio_data = old_data;
-    *pio_dir = old_dir;
     munmap(map, LW_BRIDGE_SPAN);
     close(fd);
 
-    if (ret_pid < 0 || ret_ver < 0) {
-        fprintf(stderr, "OV7670 read failed: PID ret=%d, VER ret=%d\n",
-                ret_pid, ret_ver);
-        fprintf(stderr, "ret=-1 means SCL stuck low, ret=-2 means no ACK\n");
-        return 1;
-    }
-
-    if (ret_cfg < 0) {
-        fprintf(stderr, "OV7670 grayscale QVGA configuration failed: ret=%d\n",
-                ret_cfg);
-        fprintf(stderr, "ret=-1 means SCL stuck low, ret=-2 means no ACK\n");
-        return 1;
-    }
-
-    if (ret_verify < 0) {
-        return 1;
-    }
-
-    printf("OV7670 PID=0x%02x VER=0x%02x configured grayscale QVGA, gain=0x%03x\n",
-           pid, ver, gain);
-    return 0;
+    return failed ? 1 : 0;
 }

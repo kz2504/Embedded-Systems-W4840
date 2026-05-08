@@ -9,7 +9,14 @@
 #define IMGPROC_BASE 0xFF200000u
 #define IMGPROC_SPAN 0x1000u
 
-#define IMGPROC_CONTROL 0
+#define REG32(byte_offset) ((byte_offset) / 4)
+
+#define IMG_DONE REG32(0x18u)
+#define IMG_CONTROL REG32(0x1cu)
+
+#define DONE_A (1u << 0)
+#define DONE_B (1u << 1)
+#define DONE_FB (1u << 2)
 
 int main(void)
 {
@@ -30,8 +37,12 @@ int main(void)
     volatile uint32_t *regs = (volatile uint32_t *)map;
 
     while (1) {
-        uint32_t control = regs[IMGPROC_CONTROL];
-        printf("CONTROL=0x%08x DONE=%u\n", control, control & 1u);
+        uint32_t done = regs[IMG_DONE];
+        uint32_t control = regs[IMG_CONTROL];
+        printf("DONE=0x%08x A=%u B=%u FB=%u CONTROL=0x%08x store=%u thA=%u thB=%u\n",
+               done, (done & DONE_A) != 0, (done & DONE_B) != 0,
+               (done & DONE_FB) != 0, control, control & 0x3u,
+               (control >> 8) & 0xffu, (control >> 16) & 0xffu);
         usleep(250000);
     }
 
