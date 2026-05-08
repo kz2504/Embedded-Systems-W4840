@@ -48,7 +48,19 @@ static int capture_frame(volatile uint32_t *regs, unsigned store_select,
 {
     uint32_t control = regs[IMG_CONTROL];
 
-    control = (control & ~STORE_MASK) | store_select;
+    if ((control & STORE_MASK) != STORE_NONE && (regs[IMG_DONE] & DONE_FB) == 0) {
+        printf("waiting for previous framebuffer capture to finish\n");
+        for (unsigned ms = 0; (regs[IMG_DONE] & DONE_FB) == 0; ms++) {
+            if (ms >= DONE_TIMEOUT_MS) {
+                fprintf(stderr, "timeout waiting for prior frame DONE; DONE=0x%08x\n",
+                        regs[IMG_DONE]);
+                return -1;
+            }
+            usleep(1000);
+        }
+    }
+
+    control = (regs[IMG_CONTROL] & ~STORE_MASK) | store_select;
     regs[IMG_CONTROL] = control;
 
     printf("camera %c selected; CONTROL=0x%08x DONE=0x%08x\n",

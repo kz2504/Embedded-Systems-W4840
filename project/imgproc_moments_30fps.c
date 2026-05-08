@@ -37,6 +37,11 @@
 #define NS_PER_SEC 1000000000.0
 #define PRINT_EVERY 30
 
+static void clear_done(volatile uint32_t *regs, uint32_t bits)
+{
+    regs[IMG_DONE] = ~bits;
+}
+
 static int wait_clear(volatile uint32_t *regs, uint32_t bits, const char *name)
 {
     for (unsigned ms = 0; (regs[IMG_DONE] & bits) != 0; ms++) {
@@ -139,6 +144,20 @@ int main(int argc, char **argv)
     printf("frame store off, thresholdA=%u thresholdB=%u CONTROL=0x%08x\n",
            threshold_a, threshold_b, regs[IMG_CONTROL]);
 
+    clear_done(regs, DONE_MOMENTS);
+    if (wait_clear(regs, DONE_MOMENTS, "initial moments") < 0 ||
+        wait_done(regs, DONE_MOMENTS, "initial moments") < 0) {
+        munmap(map, IMGPROC_SPAN);
+        close(fd);
+        return 1;
+    }
+    clear_done(regs, DONE_MOMENTS);
+    if (wait_clear(regs, DONE_MOMENTS, "initial moments discard") < 0) {
+        munmap(map, IMGPROC_SPAN);
+        close(fd);
+        return 1;
+    }
+
     printf("areaA,uA,vA,areaB,uB,vB,done,hz\n");
 
     while (1) {
@@ -148,19 +167,23 @@ int main(int argc, char **argv)
         uint32_t area_b;
         uint32_t u_b;
         uint32_t v_b;
+        uint32_t done_snapshot;
 
-        regs[IMG_DONE] = ~DONE_MOMENTS;
-        if (wait_clear(regs, DONE_MOMENTS, "moments") < 0 ||
-            wait_done(regs, DONE_MOMENTS, "moments") < 0) {
+        if (wait_done(regs, DONE_MOMENTS, "moments") < 0) {
             break;
         }
 
+        done_snapshot = regs[IMG_DONE];
         area_a = regs[IMG_AREA_A];
         u_a = regs[IMG_U_A];
         v_a = regs[IMG_V_A];
         area_b = regs[IMG_AREA_B];
         u_b = regs[IMG_U_B];
         v_b = regs[IMG_V_B];
+        clear_done(regs, DONE_MOMENTS);
+        if (wait_clear(regs, DONE_MOMENTS, "moments") < 0) {
+            break;
+        }
 
         sample++;
 
@@ -179,7 +202,7 @@ int main(int argc, char **argv)
             have_last_print = 1;
 
             printf("%u,%u,%u,%u,%u,%u,0x%08x,%.2f\n",
-                   area_a, u_a, v_a, area_b, u_b, v_b, regs[IMG_DONE], hz);
+                   area_a, u_a, v_a, area_b, u_b, v_b, done_snapshot, hz);
             fflush(stdout);
         }
     }
