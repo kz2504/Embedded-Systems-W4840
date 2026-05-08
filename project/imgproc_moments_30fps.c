@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 
 #define IMGPROC_BASE 0xFF200000u
@@ -33,6 +34,7 @@
 #define CLEAR_TIMEOUT_MS 100
 #define DONE_TIMEOUT_MS 1000
 #define FRAME_US 33333
+#define NS_PER_SEC 1000000000.0
 
 static int wait_clear(volatile uint32_t *regs, uint32_t bits, const char *name)
 {
@@ -81,6 +83,13 @@ static void usage(const char *name)
     fprintf(stderr, "  thresholds are 0..255; one value applies to both cameras\n");
 }
 
+static double elapsed_seconds(const struct timespec *start,
+                              const struct timespec *end)
+{
+    return (double)(end->tv_sec - start->tv_sec) +
+           (double)(end->tv_nsec - start->tv_nsec) / NS_PER_SEC;
+}
+
 int main(int argc, char **argv)
 {
     unsigned threshold_a = 0;
@@ -115,6 +124,8 @@ int main(int argc, char **argv)
     }
 
     volatile uint32_t *regs = (volatile uint32_t *)map;
+    struct timespec last_print;
+    int have_last_print = 0;
 
     regs[IMG_CONTROL] =
         (regs[IMG_CONTROL] &
@@ -126,7 +137,7 @@ int main(int argc, char **argv)
     printf("frame store off, thresholdA=%u thresholdB=%u CONTROL=0x%08x\n",
            threshold_a, threshold_b, regs[IMG_CONTROL]);
 
-    printf("areaA,uA,vA,areaB,uB,vB,done\n");
+    printf("areaA,uA,vA,areaB,uB,vB,done,hz\n");
 
     while (1) {
         uint32_t area_a;
@@ -154,8 +165,21 @@ int main(int argc, char **argv)
         u_b = regs[IMG_U_B];
         v_b = regs[IMG_V_B];
 
-        printf("%u,%u,%u,%u,%u,%u,0x%08x\n",
-               area_a, u_a, v_a, area_b, u_b, v_b, regs[IMG_DONE]);
+        struct timespec now;
+        double hz = 0.0;
+
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        if (have_last_print) {
+            double dt = elapsed_seconds(&last_print, &now);
+            if (dt > 0.0) {
+                hz = 1.0 / dt;
+            }
+        }
+        last_print = now;
+        have_last_print = 1;
+
+        printf("%u,%u,%u,%u,%u,%u,0x%08x,%.2f\n",
+               area_a, u_a, v_a, area_b, u_b, v_b, regs[IMG_DONE], hz);
         fflush(stdout);
 
         usleep(FRAME_US);
