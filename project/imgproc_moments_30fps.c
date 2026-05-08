@@ -25,6 +25,7 @@
 
 #define DONE_A (1u << 0)
 #define DONE_B (1u << 1)
+#define DONE_MOMENTS (DONE_A | DONE_B)
 #define STORE_MASK 0x3u
 #define STORE_NONE 0u
 #define THRESH_A_SHIFT 8
@@ -148,20 +149,15 @@ int main(int argc, char **argv)
         uint32_t u_b;
         uint32_t v_b;
 
-        regs[IMG_DONE] = ~DONE_A;
-        if (wait_clear(regs, DONE_A, "camera A") < 0 ||
-            wait_done(regs, DONE_A, "camera A") < 0) {
+        regs[IMG_DONE] = ~DONE_MOMENTS;
+        if (wait_clear(regs, DONE_MOMENTS, "moments") < 0 ||
+            wait_done(regs, DONE_MOMENTS, "moments") < 0) {
             break;
         }
+
         area_a = regs[IMG_AREA_A];
         u_a = regs[IMG_U_A];
         v_a = regs[IMG_V_A];
-
-        regs[IMG_DONE] = ~DONE_B;
-        if (wait_clear(regs, DONE_B, "camera B") < 0 ||
-            wait_done(regs, DONE_B, "camera B") < 0) {
-            break;
-        }
         area_b = regs[IMG_AREA_B];
         u_b = regs[IMG_U_B];
         v_b = regs[IMG_V_B];
