@@ -37,6 +37,12 @@
 #define NS_PER_SEC 1000000000.0
 #define PRINT_EVERY 30
 
+typedef struct {
+    uint32_t area;
+    uint32_t u;
+    uint32_t v;
+} moments_t;
+
 static void clear_done(volatile uint32_t *regs, uint32_t bits)
 {
     regs[IMG_DONE] = ~bits;
@@ -54,15 +60,55 @@ static int wait_clear(volatile uint32_t *regs, uint32_t bits, const char *name)
     return 0;
 }
 
-static int wait_done(volatile uint32_t *regs, uint32_t bits, const char *name)
+static void read_moments_a(volatile uint32_t *regs, moments_t *moments)
 {
-    for (unsigned polls = 0; (regs[IMG_DONE] & bits) != bits; polls++) {
+    moments->area = regs[IMG_AREA_A];
+    moments->u = regs[IMG_U_A];
+    moments->v = regs[IMG_V_A];
+}
+
+static void read_moments_b(volatile uint32_t *regs, moments_t *moments)
+{
+    moments->area = regs[IMG_AREA_B];
+    moments->u = regs[IMG_U_B];
+    moments->v = regs[IMG_V_B];
+}
+
+static int discard_first_results(volatile uint32_t *regs)
+{
+    int discarded_a = 0;
+    int discarded_b = 0;
+    moments_t unused;
+
+    for (unsigned polls = 0; !discarded_a || !discarded_b; polls++) {
+        uint32_t done = regs[IMG_DONE];
+
+        if (!discarded_a && (done & DONE_A)) {
+            read_moments_a(regs, &unused);
+            clear_done(regs, DONE_A);
+            if (wait_clear(regs, DONE_A, "initial camera A moments") < 0) {
+                return -1;
+            }
+            discarded_a = 1;
+        }
+
+        if (!discarded_b && (done & DONE_B)) {
+            read_moments_b(regs, &unused);
+            clear_done(regs, DONE_B);
+            if (wait_clear(regs, DONE_B, "initial camera B moments") < 0) {
+                return -1;
+            }
+            discarded_b = 1;
+        }
+
         if (polls >= DONE_TIMEOUT_POLLS) {
-            fprintf(stderr, "%s: timeout waiting for DONE; DONE=0x%08x\n",
-                    name, regs[IMG_DONE]);
+            fprintf(stderr,
+                    "initial moments: timeout waiting for first results; DONE=0x%08x\n",
+                    regs[IMG_DONE]);
             return -1;
         }
     }
+
     return 0;
 }
 
@@ -92,6 +138,14 @@ static double elapsed_seconds(const struct timespec *start,
 {
     return (double)(end->tv_sec - start->tv_sec) +
            (double)(end->tv_nsec - start->tv_nsec) / NS_PER_SEC;
+}
+
+static double centroid_coord(uint32_t moment, uint32_t area)
+{
+    if (area == 0) {
+        return -1.0;
+    }
+    return (double)moment / (double)area;
 }
 
 int main(int argc, char **argv)
@@ -130,7 +184,13 @@ int main(int argc, char **argv)
     volatile uint32_t *regs = (volatile uint32_t *)map;
     struct timespec last_print;
     int have_last_print = 0;
+    int fresh_a = 0;
+    int fresh_b = 0;
     unsigned sample = 0;
+    moments_t moments_a = {0, 0, 0};
+    moments_t moments_b = {0, 0, 0};
+    uint32_t paired_done_snapshot = 0;
+    unsigned idle_polls = 0;
 
     regs[IMG_CONTROL] =
         (regs[IMG_CONTROL] &
@@ -144,43 +204,51 @@ int main(int argc, char **argv)
 
     clear_done(regs, DONE_MOMENTS);
     if (wait_clear(regs, DONE_MOMENTS, "initial moments") < 0 ||
-        wait_done(regs, DONE_MOMENTS, "initial moments") < 0) {
-        munmap(map, IMGPROC_SPAN);
-        close(fd);
-        return 1;
-    }
-    clear_done(regs, DONE_MOMENTS);
-    if (wait_clear(regs, DONE_MOMENTS, "initial moments discard") < 0) {
+        discard_first_results(regs) < 0) {
         munmap(map, IMGPROC_SPAN);
         close(fd);
         return 1;
     }
 
-    printf("areaA,uA,vA,areaB,uB,vB,done,hz\n");
+    printf("areaA,uA,vA,cxA,cyA,areaB,uB,vB,cxB,cyB,done,hz\n");
 
     while (1) {
-        uint32_t area_a;
-        uint32_t u_a;
-        uint32_t v_a;
-        uint32_t area_b;
-        uint32_t u_b;
-        uint32_t v_b;
-        uint32_t done_snapshot;
+        uint32_t done = regs[IMG_DONE];
 
-        if (wait_done(regs, DONE_MOMENTS, "moments") < 0) {
-            break;
+        if ((done & DONE_MOMENTS) == 0) {
+            idle_polls++;
+            if (idle_polls >= DONE_TIMEOUT_POLLS) {
+                fprintf(stderr,
+                        "moments: timeout waiting for DONE; DONE=0x%08x\n",
+                        regs[IMG_DONE]);
+                break;
+            }
+            continue;
+        }
+        idle_polls = 0;
+
+        if (done & DONE_A) {
+            read_moments_a(regs, &moments_a);
+            clear_done(regs, DONE_A);
+            if (wait_clear(regs, DONE_A, "camera A moments") < 0) {
+                break;
+            }
+            fresh_a = 1;
+            paired_done_snapshot |= DONE_A;
         }
 
-        done_snapshot = regs[IMG_DONE];
-        area_a = regs[IMG_AREA_A];
-        u_a = regs[IMG_U_A];
-        v_a = regs[IMG_V_A];
-        area_b = regs[IMG_AREA_B];
-        u_b = regs[IMG_U_B];
-        v_b = regs[IMG_V_B];
-        clear_done(regs, DONE_MOMENTS);
-        if (wait_clear(regs, DONE_MOMENTS, "moments") < 0) {
-            break;
+        if (done & DONE_B) {
+            read_moments_b(regs, &moments_b);
+            clear_done(regs, DONE_B);
+            if (wait_clear(regs, DONE_B, "camera B moments") < 0) {
+                break;
+            }
+            fresh_b = 1;
+            paired_done_snapshot |= DONE_B;
+        }
+
+        if (!fresh_a || !fresh_b) {
+            continue;
         }
 
         sample++;
@@ -188,6 +256,10 @@ int main(int argc, char **argv)
         if (sample % PRINT_EVERY == 0) {
             struct timespec now;
             double hz = 0.0;
+            double cx_a = centroid_coord(moments_a.u, moments_a.area);
+            double cy_a = centroid_coord(moments_a.v, moments_a.area);
+            double cx_b = centroid_coord(moments_b.u, moments_b.area);
+            double cy_b = centroid_coord(moments_b.v, moments_b.area);
 
             clock_gettime(CLOCK_MONOTONIC, &now);
             if (have_last_print) {
@@ -199,10 +271,18 @@ int main(int argc, char **argv)
             last_print = now;
             have_last_print = 1;
 
-            printf("%u,%u,%u,%u,%u,%u,0x%08x,%.2f\n",
-                   area_a, u_a, v_a, area_b, u_b, v_b, done_snapshot, hz);
+            printf("%u,%u,%u,%.2f,%.2f,%u,%u,%u,%.2f,%.2f,0x%08x,%.2f\n",
+                   moments_a.area, moments_a.u, moments_a.v,
+                   cx_a, cy_a,
+                   moments_b.area, moments_b.u, moments_b.v,
+                   cx_b, cy_b,
+                   paired_done_snapshot, hz);
             fflush(stdout);
         }
+
+        fresh_a = 0;
+        fresh_b = 0;
+        paired_done_snapshot = 0;
     }
 
     munmap(map, IMGPROC_SPAN);
