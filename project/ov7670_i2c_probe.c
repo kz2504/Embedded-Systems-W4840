@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -55,6 +56,10 @@
 #define SCCB_STOP_US 1000
 #define DEFAULT_GAIN 0x20u
 #define VGA_VREF_LOW_BITS 0x0au
+
+#define CAMERA_A_SELECT (1u << 0)
+#define CAMERA_B_SELECT (1u << 1)
+#define CAMERA_BOTH_SELECT (CAMERA_A_SELECT | CAMERA_B_SELECT)
 
 struct camera_reg {
     const char *name;
@@ -391,9 +396,29 @@ static int parse_gain(const char *text, unsigned *gain)
     return 0;
 }
 
+static int parse_camera_select(const char *text, unsigned *cameras)
+{
+    if (strcmp(text, "A") == 0 || strcmp(text, "a") == 0 ||
+        strcmp(text, "0") == 0) {
+        *cameras = CAMERA_A_SELECT;
+        return 0;
+    }
+    if (strcmp(text, "B") == 0 || strcmp(text, "b") == 0 ||
+        strcmp(text, "1") == 0) {
+        *cameras = CAMERA_B_SELECT;
+        return 0;
+    }
+    if (strcmp(text, "both") == 0 || strcmp(text, "BOTH") == 0 ||
+        strcmp(text, "all") == 0 || strcmp(text, "ALL") == 0) {
+        *cameras = CAMERA_BOTH_SELECT;
+        return 0;
+    }
+    return -1;
+}
+
 static void usage(const char *name)
 {
-    fprintf(stderr, "usage: %s [gain]\n", name);
+    fprintf(stderr, "usage: %s [A|B|both] [gain]\n", name);
     fprintf(stderr, "  gain: 10-bit manual gain value, 0..0x3ff (default 0x%02x)\n",
             DEFAULT_GAIN);
 }
@@ -473,14 +498,28 @@ out:
 
 int main(int argc, char **argv)
 {
+    unsigned cameras = CAMERA_A_SELECT;
     unsigned gain = DEFAULT_GAIN;
     int failed = 0;
+    int argi = 1;
 
-    if (argc > 2) {
+    if (argc > 3) {
         usage(argv[0]);
         return 2;
     }
-    if (argc == 2 && parse_gain(argv[1], &gain) < 0) {
+
+    if (argi < argc && parse_camera_select(argv[argi], &cameras) == 0) {
+        argi++;
+    }
+
+    if (argi < argc && parse_gain(argv[argi], &gain) < 0) {
+        usage(argv[0]);
+        return 2;
+    }
+    if (argi < argc) {
+        argi++;
+    }
+    if (argi != argc) {
         usage(argv[0]);
         return 2;
     }
@@ -499,10 +538,12 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    if (configure_camera(map, GPIO0_I2C_OFFSET, "camera A (GPIO0)", gain) < 0) {
+    if ((cameras & CAMERA_A_SELECT) &&
+        configure_camera(map, GPIO0_I2C_OFFSET, "camera A (GPIO0)", gain) < 0) {
         failed = 1;
     }
-    if (configure_camera(map, GPIO1_I2C_OFFSET, "camera B (GPIO1)", gain) < 0) {
+    if ((cameras & CAMERA_B_SELECT) &&
+        configure_camera(map, GPIO1_I2C_OFFSET, "camera B (GPIO1)", gain) < 0) {
         failed = 1;
     }
 

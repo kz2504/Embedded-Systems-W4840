@@ -28,7 +28,7 @@ imgproc_moments_30fps: imgproc_moments_30fps.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 run: ov7670_i2c_probe
-	./ov7670_i2c_probe $(ARGS)
+	./ov7670_i2c_probe $(CAM) $(ARGS)
 
 scan-control: imgproc_scan_control
 	./imgproc_scan_control
