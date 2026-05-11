@@ -1,9 +1,31 @@
 TARGETS := ov7670_i2c_probe imgproc_scan_control imgproc_capture_pgm imgproc_moments_30fps
 ARGS ?=
 CAM ?= A
+GAIN ?=
+AGC ?=
+AEC ?=
+EXPOSURE ?=
+CEILING ?=
 THRESH ?= 0
 THRESH_A ?= $(THRESH)
 THRESH_B ?= $(THRESH)
+
+RUN_ARGS := $(ARGS)
+ifneq ($(GAIN),)
+RUN_ARGS += gain=$(GAIN)
+endif
+ifneq ($(AGC),)
+RUN_ARGS += agc=$(AGC)
+endif
+ifneq ($(AEC),)
+RUN_ARGS += aec=$(AEC)
+endif
+ifneq ($(EXPOSURE),)
+RUN_ARGS += exposure=$(EXPOSURE)
+endif
+ifneq ($(CEILING),)
+RUN_ARGS += ceiling=$(CEILING)
+endif
 
 ifeq ($(origin CC),default)
 CC := $(CROSS_COMPILE)gcc
@@ -28,7 +50,7 @@ imgproc_moments_30fps: imgproc_moments_30fps.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 run: ov7670_i2c_probe
-	./ov7670_i2c_probe $(CAM) $(ARGS)
+	./ov7670_i2c_probe $(CAM) $(RUN_ARGS)
 
 scan-control: imgproc_scan_control
 	./imgproc_scan_control
