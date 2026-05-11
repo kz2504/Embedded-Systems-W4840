@@ -358,8 +358,9 @@ static int ov7670_set_exposure(unsigned exposure)
         return ret;
     }
 
-    ret = ov7670_write_reg(REG_COM1,
-                           (uint8_t)((com1 & 0xfcu) | (exposure & 0x03u)));
+    ret = ov7670_write_reg(REG_AECHH,
+                            (uint8_t)((aechh & 0xc0u) |
+                                      ((exposure >> 10) & 0x3fu)));
     if (ret < 0) {
         return ret;
     }
@@ -367,9 +368,9 @@ static int ov7670_set_exposure(unsigned exposure)
     if (ret < 0) {
         return ret;
     }
-    return ov7670_write_reg(REG_AECHH,
-                            (uint8_t)((aechh & 0xc0u) |
-                                      ((exposure >> 10) & 0x3fu)));
+    return ov7670_write_reg(REG_COM1,
+                            (uint8_t)((com1 & 0xfcu) |
+                                      (exposure & 0x03u)));
 }
 
 static int ov7670_configure_grayscale_vga(const struct camera_settings *settings)
@@ -385,6 +386,10 @@ static int ov7670_configure_grayscale_vga(const struct camera_settings *settings
     ret = ov7670_write_table(grayscale_vga_regs,
                              sizeof(grayscale_vga_regs) /
                                  sizeof(grayscale_vga_regs[0]));
+    if (ret < 0) {
+        return ret;
+    }
+    ret = ov7670_write_reg(REG_COM8, ov7670_com8_value(settings));
     if (ret < 0) {
         return ret;
     }
