@@ -1,0 +1,8 @@
+g++ -O2 -Wall -Wextra -std=c++11 $(pkg-config --cflags opencv4) -o calibrate_intrinsics calibrate_intrinsics.cpp $(pkg-config --libs opencv4)
+
+
+pkg-config --modversion opencv4
+
+
+pkg-config --modversion opencv
+
