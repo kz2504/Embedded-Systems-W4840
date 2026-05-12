@@ -1,12 +1,13 @@
 TARGET := serial_frame_decode
 LOG ?= screenlog.0
 OUT ?= decoded_frames
+PYTHON ?= python3
 
 CC ?= cc
 CPPFLAGS ?= -Iinclude
 CFLAGS ?= -O2 -Wall -Wextra -std=c11
 
-.PHONY: all decode clean
+.PHONY: all decode plot clean
 
 all: $(TARGET)
 
@@ -15,6 +16,9 @@ $(TARGET): tools/serial_frame_decode.c
 
 decode: $(TARGET)
 	./$(TARGET) $(LOG) $(OUT)
+
+plot:
+	$(PYTHON) tools/live_xyz_plot.py $(LOG)
 
 clean:
 	rm -f $(TARGET)

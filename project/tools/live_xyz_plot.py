@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import re
+import sys
+from collections import deque
+
+
+XYZ_RE = re.compile(
+    rb"xyz\s*=\s*"
+    rb"([-+]?\d+(?:\.\d*)?(?:[eE][-+]?\d+)?),\s*"
+    rb"([-+]?\d+(?:\.\d*)?(?:[eE][-+]?\d+)?),\s*"
+    rb"([-+]?\d+(?:\.\d*)?(?:[eE][-+]?\d+)?)"
+)
+
+
+class ScreenlogTail:
+    def __init__(self, path, from_start=False):
+        self.path = path
+        self.offset = 0 if from_start else None
+        self.buffer = b""
+
+    def poll(self):
+        try:
+            size = os.path.getsize(self.path)
+        except OSError:
+            return []
+
+        if self.offset is None:
+            self.offset = size
+            return []
+
+        if size < self.offset:
+            self.offset = 0
+            self.buffer = b""
+
+        try:
+            with open(self.path, "rb") as log:
+                log.seek(self.offset)
+                chunk = log.read()
+                self.offset = log.tell()
+        except OSError:
+            return []
+
+        if not chunk:
+            return []
+
+        data = self.buffer + chunk
+        points = []
+        last_end = -1
+
+        for match in XYZ_RE.finditer(data):
+            points.append(tuple(float(match.group(i)) for i in range(1, 4)))
+            last_end = match.end()
+
+        if last_end >= 0:
+            self.buffer = data[last_end:][-1024:]
+        else:
+            self.buffer = data[-1024:]
+
+        return points
+
+
+def equalize_axes(ax, xs, ys, zs):
+    mins = [min(xs), min(ys), min(zs)]
+    maxs = [max(xs), max(ys), max(zs)]
+    centers = [(lo + hi) * 0.5 for lo, hi in zip(mins, maxs)]
+    radius = max(max(hi - lo for lo, hi in zip(mins, maxs)) * 0.5, 1.0)
+
+    ax.set_xlim(centers[0] - radius, centers[0] + radius)
+    ax.set_ylim(centers[1] - radius, centers[1] + radius)
+    ax.set_zlim(centers[2] - radius, centers[2] + radius)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Plot live xyz runtime output from a GNU screen log."
+    )
+    parser.add_argument("log", nargs="?", default="screenlog.0")
+    parser.add_argument("--history", type=int, default=300)
+    parser.add_argument("--interval-ms", type=int, default=100)
+    parser.add_argument("--from-start", action="store_true")
+    args = parser.parse_args()
+
+    try:
+        import matplotlib.pyplot as plt
+        from matplotlib.animation import FuncAnimation
+    except ImportError:
+        print("matplotlib is required: python3 -m pip install matplotlib",
+              file=sys.stderr)
+        return 1
+
+    tail = ScreenlogTail(args.log, from_start=args.from_start)
+    points = deque(maxlen=max(args.history, 1))
+
+    fig = plt.figure("stereo live xyz")
+    ax = fig.add_subplot(111, projection="3d")
+    line, = ax.plot([], [], [], "-", linewidth=1.0)
+    current = ax.scatter([], [], [], s=40)
+
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.set_title(f"tailing {args.log}")
+
+    def update(_frame):
+        nonlocal current
+
+        for point in tail.poll():
+            points.append(point)
+
+        if not points:
+            return line, current
+
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+        zs = [p[2] for p in points]
+
+        line.set_data(xs, ys)
+        line.set_3d_properties(zs)
+        current.remove()
+        current = ax.scatter([xs[-1]], [ys[-1]], [zs[-1]], s=45)
+        equalize_axes(ax, xs, ys, zs)
+        ax.set_title(
+            f"{args.log}  xyz=({xs[-1]:.3f}, {ys[-1]:.3f}, {zs[-1]:.3f})"
+        )
+        return line, current
+
+    animation = FuncAnimation(
+        fig, update, interval=args.interval_ms, cache_frame_data=False
+    )
+    fig._stereo_animation = animation
+    plt.show()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

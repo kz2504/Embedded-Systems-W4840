@@ -23,6 +23,7 @@
 #define MAX_ARGS 24
 #define RUNTIME_PERIOD_MS 500
 #define DEFAULT_MIN_AREA 10u
+#define DEFAULT_THRESHOLD 0x0au
 
 static const double K_A[9] = {
     879.693451, 0.0,        365.717241,
@@ -61,8 +62,8 @@ typedef struct {
 static void app_state_init(app_state_t *state)
 {
     memset(state, 0, sizeof(*state));
-    state->threshold_a = 0;
-    state->threshold_b = 0;
+    state->threshold_a = DEFAULT_THRESHOLD;
+    state->threshold_b = DEFAULT_THRESHOLD;
     state->min_area = DEFAULT_MIN_AREA;
     projection_identity3(state->floor_rot);
     state->scale = 1.0;
@@ -730,6 +731,10 @@ int main(void)
 
     printf("stereo terminal\n");
     printf("intrinsics loaded for camera A and B\n");
+    printf("applying startup camera config\n");
+    if (configure_defaults(&state, CAMERA_BOTH) < 0) {
+        printf("startup config reported an error; continuing anyway\n");
+    }
     if (prompt_initial_mode(&state) < 0) {
         printf("initial mode ended with an error; entering command prompt\n");
     }
