@@ -1,16 +1,13 @@
 #define _DEFAULT_SOURCE
 
-#include <errno.h>
+#include "camera_config.h"
+
 #include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
-
-#define LW_BRIDGE_BASE 0xFF200000u
-#define LW_BRIDGE_SPAN 0x1000u
 
 #define GPIO0_I2C_OFFSET 0x120u
 #define GPIO1_I2C_OFFSET 0x160u
@@ -59,33 +56,13 @@
 
 #define I2C_DELAY_US 5
 #define SCCB_STOP_US 1000
-#define DEFAULT_GAIN 0x20u
-#define DEFAULT_AGC 0
-#define DEFAULT_AEC 1
 #define VGA_VREF_LOW_BITS 0x0au
-#define MAX_GAIN 0x3ffu
-#define MAX_EXPOSURE 0xffffu
-#define MAX_REG8 0xffu
-
-#define CAMERA_A_SELECT (1u << 0)
-#define CAMERA_B_SELECT (1u << 1)
-#define CAMERA_BOTH_SELECT (CAMERA_A_SELECT | CAMERA_B_SELECT)
 
 struct camera_reg {
     const char *name;
     uint8_t reg;
     uint8_t val;
     uint8_t mask;
-};
-
-struct camera_settings {
-    unsigned gain;
-    unsigned exposure;
-    unsigned gain_ceiling;
-    int agc;
-    int aec;
-    int exposure_set;
-    int gain_ceiling_set;
 };
 
 static const struct camera_reg grayscale_vga_regs[] = {
@@ -245,9 +222,8 @@ static int i2c_read_byte(uint8_t *value, int nack)
 
 static int ov7670_read_reg(uint8_t reg, uint8_t *value)
 {
-    int ret;
+    int ret = i2c_start();
 
-    ret = i2c_start();
     if (ret < 0) {
         return ret;
     }
@@ -281,9 +257,8 @@ static int ov7670_read_reg(uint8_t reg, uint8_t *value)
 
 static int ov7670_write_reg(uint8_t reg, uint8_t value)
 {
-    int ret;
+    int ret = i2c_start();
 
-    ret = i2c_start();
     if (ret < 0) {
         return ret;
     }
@@ -320,16 +295,15 @@ static int ov7670_set_gain(unsigned gain)
 {
     uint8_t low = (uint8_t)(gain & 0xffu);
     uint8_t high = (uint8_t)(((gain >> 8) & 0x03u) << 6);
-    int ret;
+    int ret = ov7670_write_reg(REG_GAIN, low);
 
-    ret = ov7670_write_reg(REG_GAIN, low);
     if (ret < 0) {
         return ret;
     }
     return ov7670_write_reg(REG_VREF, (uint8_t)(VGA_VREF_LOW_BITS | high));
 }
 
-static uint8_t ov7670_com8_value(const struct camera_settings *settings)
+static uint8_t ov7670_com8_value(const camera_settings_t *settings)
 {
     uint8_t value = COM8_FASTAEC | COM8_AECSTEP;
 
@@ -347,9 +321,8 @@ static int ov7670_set_exposure(unsigned exposure)
 {
     uint8_t com1 = 0;
     uint8_t aechh = 0;
-    int ret;
+    int ret = ov7670_read_reg(REG_COM1, &com1);
 
-    ret = ov7670_read_reg(REG_COM1, &com1);
     if (ret < 0) {
         return ret;
     }
@@ -359,8 +332,8 @@ static int ov7670_set_exposure(unsigned exposure)
     }
 
     ret = ov7670_write_reg(REG_AECHH,
-                            (uint8_t)((aechh & 0xc0u) |
-                                      ((exposure >> 10) & 0x3fu)));
+                           (uint8_t)((aechh & 0xc0u) |
+                                     ((exposure >> 10) & 0x3fu)));
     if (ret < 0) {
         return ret;
     }
@@ -373,11 +346,10 @@ static int ov7670_set_exposure(unsigned exposure)
                                       (exposure & 0x03u)));
 }
 
-static int ov7670_configure_grayscale_vga(const struct camera_settings *settings)
+static int ov7670_configure_grayscale_vga(const camera_settings_t *settings)
 {
-    int ret;
+    int ret = ov7670_write_reg(REG_COM7, COM7_RESET);
 
-    ret = ov7670_write_reg(REG_COM7, COM7_RESET);
     if (ret < 0) {
         return ret;
     }
@@ -435,11 +407,10 @@ static int ov7670_verify_exposure(unsigned expected)
     uint8_t com1 = 0;
     uint8_t aech = 0;
     uint8_t aechh = 0;
+    int ret = ov7670_read_reg(REG_COM1, &com1);
     unsigned actual;
-    int ret;
     int pass;
 
-    ret = ov7670_read_reg(REG_COM1, &com1);
     if (ret < 0) {
         printf("%-18s read failed ret=%d FAIL\n", "EXPOSURE", ret);
         return -1;
@@ -465,7 +436,7 @@ static int ov7670_verify_exposure(unsigned expected)
     return pass ? 0 : -1;
 }
 
-static int ov7670_verify_grayscale_vga(const struct camera_settings *settings)
+static int ov7670_verify_grayscale_vga(const camera_settings_t *settings)
 {
     unsigned failures = 0;
     uint8_t gain_low = (uint8_t)(settings->gain & 0xffu);
@@ -528,100 +499,46 @@ static int ov7670_verify_grayscale_vga(const struct camera_settings *settings)
     return 0;
 }
 
-static int parse_unsigned(const char *text, unsigned max, unsigned *value_out)
-{
-    char *end = NULL;
-    unsigned long value;
-
-    errno = 0;
-    value = strtoul(text, &end, 0);
-    if (errno || *end || value > max) {
-        return -1;
-    }
-    *value_out = (unsigned)value;
-    return 0;
-}
-
-static int parse_bool(const char *text, int *value_out)
-{
-    if (strcmp(text, "1") == 0 || strcmp(text, "on") == 0 ||
-        strcmp(text, "ON") == 0 || strcmp(text, "true") == 0 ||
-        strcmp(text, "TRUE") == 0 || strcmp(text, "yes") == 0 ||
-        strcmp(text, "YES") == 0) {
-        *value_out = 1;
-        return 0;
-    }
-    if (strcmp(text, "0") == 0 || strcmp(text, "off") == 0 ||
-        strcmp(text, "OFF") == 0 || strcmp(text, "false") == 0 ||
-        strcmp(text, "FALSE") == 0 || strcmp(text, "no") == 0 ||
-        strcmp(text, "NO") == 0) {
-        *value_out = 0;
-        return 0;
-    }
-    return -1;
-}
-
-static int parse_gain(const char *text, unsigned *gain)
-{
-    return parse_unsigned(text, MAX_GAIN, gain);
-}
-
-static int parse_camera_select(const char *text, unsigned *cameras)
-{
-    if (strcmp(text, "A") == 0 || strcmp(text, "a") == 0 ||
-        strcmp(text, "0") == 0) {
-        *cameras = CAMERA_A_SELECT;
-        return 0;
-    }
-    if (strcmp(text, "B") == 0 || strcmp(text, "b") == 0 ||
-        strcmp(text, "1") == 0) {
-        *cameras = CAMERA_B_SELECT;
-        return 0;
-    }
-    if (strcmp(text, "both") == 0 || strcmp(text, "BOTH") == 0 ||
-        strcmp(text, "all") == 0 || strcmp(text, "ALL") == 0) {
-        *cameras = CAMERA_BOTH_SELECT;
-        return 0;
-    }
-    return -1;
-}
-
-static int parse_setting(const char *text, struct camera_settings *settings)
+int camera_config_parse_setting(const char *text, camera_settings_t *settings)
 {
     const char *value = strchr(text, '=');
     size_t name_len;
 
     if (!value) {
-        return -1;
+        return parse_unsigned_arg(text, CAMERA_GAIN_MAX, &settings->gain);
     }
+
     name_len = (size_t)(value - text);
     value++;
 
     if (name_len == 4 && strncmp(text, "gain", name_len) == 0) {
-        return parse_unsigned(value, MAX_GAIN, &settings->gain);
+        return parse_unsigned_arg(value, CAMERA_GAIN_MAX, &settings->gain);
     }
     if (name_len == 3 && strncmp(text, "agc", name_len) == 0) {
-        return parse_bool(value, &settings->agc);
+        return parse_bool_arg(value, &settings->agc);
     }
     if (name_len == 3 && strncmp(text, "aec", name_len) == 0) {
-        return parse_bool(value, &settings->aec);
+        return parse_bool_arg(value, &settings->aec);
     }
     if (name_len == 8 && strncmp(text, "exposure", name_len) == 0) {
-        if (parse_unsigned(value, MAX_EXPOSURE, &settings->exposure) < 0) {
+        if (parse_unsigned_arg(value, CAMERA_EXPOSURE_MAX,
+                               &settings->exposure) < 0) {
             return -1;
         }
         settings->exposure_set = 1;
         return 0;
     }
     if (name_len == 7 && strncmp(text, "ceiling", name_len) == 0) {
-        if (parse_unsigned(value, MAX_REG8, &settings->gain_ceiling) < 0) {
+        if (parse_unsigned_arg(value, CAMERA_REG8_MAX,
+                               &settings->gain_ceiling) < 0) {
             return -1;
         }
         settings->gain_ceiling_set = 1;
         return 0;
     }
     if (name_len == 4 && strncmp(text, "com9", name_len) == 0) {
-        if (parse_unsigned(value, MAX_REG8, &settings->gain_ceiling) < 0) {
+        if (parse_unsigned_arg(value, CAMERA_REG8_MAX,
+                               &settings->gain_ceiling) < 0) {
             return -1;
         }
         settings->gain_ceiling_set = 1;
@@ -631,21 +548,9 @@ static int parse_setting(const char *text, struct camera_settings *settings)
     return -1;
 }
 
-static void usage(const char *name)
-{
-    fprintf(stderr, "usage: %s [A|B|both] [gain] [key=value...]\n", name);
-    fprintf(stderr, "  gain=0..0x3ff       manual sensor gain (default 0x%02x)\n",
-            DEFAULT_GAIN);
-    fprintf(stderr, "  agc=0|1             auto gain control (default %d)\n",
-            DEFAULT_AGC);
-    fprintf(stderr, "  aec=0|1             auto exposure control (default %d)\n",
-            DEFAULT_AEC);
-    fprintf(stderr, "  exposure=0..0xffff  manual exposure; use with aec=0\n");
-    fprintf(stderr, "  ceiling=0..0xff     COM9 auto-gain ceiling; use with agc=1\n");
-}
-
-static int configure_camera(void *map, uint32_t i2c_offset, const char *label,
-                            const struct camera_settings *settings)
+static int configure_one_camera(void *map, uint32_t i2c_offset,
+                                const char *label,
+                                const camera_settings_t *settings)
 {
     uint32_t old_data;
     uint32_t old_dir;
@@ -670,7 +575,7 @@ static int configure_camera(void *map, uint32_t i2c_offset, const char *label,
     usleep(SCCB_STOP_US);
 
     if (!read_line(SCL_BIT) || !read_line(SDA_BIT)) {
-        fprintf(stderr, "%s: SCL/SDA did not release high; check pull-ups and wiring\n",
+        fprintf(stderr, "%s: SCL/SDA did not release high; check wiring\n",
                 label);
         failed = 1;
         goto out;
@@ -695,7 +600,7 @@ static int configure_camera(void *map, uint32_t i2c_offset, const char *label,
     }
 
     if (ret_cfg < 0) {
-        fprintf(stderr, "%s: OV7670 grayscale VGA configuration failed: ret=%d\n",
+        fprintf(stderr, "%s: grayscale VGA configuration failed: ret=%d\n",
                 label, ret_cfg);
         fprintf(stderr, "ret=-1 means SCL stuck low, ret=-2 means no ACK\n");
         failed = 1;
@@ -726,73 +631,37 @@ out:
     return failed ? -1 : 0;
 }
 
-int main(int argc, char **argv)
+int camera_configure(camera_select_t cameras, const camera_settings_t *settings)
 {
-    unsigned cameras = CAMERA_A_SELECT;
-    struct camera_settings settings = {
-        .gain = DEFAULT_GAIN,
-        .exposure = 0,
-        .gain_ceiling = 0,
-        .agc = DEFAULT_AGC,
-        .aec = DEFAULT_AEC,
-        .exposure_set = 0,
-        .gain_ceiling_set = 0,
-    };
-    int failed = 0;
-    int argi = 1;
-
-    if (argc > 8) {
-        usage(argv[0]);
-        return 2;
-    }
-
-    if (argi < argc && parse_camera_select(argv[argi], &cameras) == 0) {
-        argi++;
-    }
-
-    if (argi < argc && strchr(argv[argi], '=') == NULL) {
-        if (parse_gain(argv[argi], &settings.gain) < 0) {
-            usage(argv[0]);
-            return 2;
-        }
-        argi++;
-    }
-
-    while (argi < argc) {
-        if (parse_setting(argv[argi], &settings) < 0) {
-            usage(argv[0]);
-            return 2;
-        }
-        argi++;
-    }
-
     int fd = open("/dev/mem", O_RDWR | O_SYNC);
+    int failed = 0;
+    void *map;
+
     if (fd < 0) {
         perror("open /dev/mem");
-        return 1;
+        return -1;
     }
 
-    void *map = mmap(NULL, LW_BRIDGE_SPAN, PROT_READ | PROT_WRITE, MAP_SHARED,
-                     fd, LW_BRIDGE_BASE);
+    map = mmap(NULL, DE1_LW_BRIDGE_SPAN, PROT_READ | PROT_WRITE, MAP_SHARED,
+               fd, DE1_LW_BRIDGE_BASE);
     if (map == MAP_FAILED) {
         perror("mmap");
         close(fd);
-        return 1;
+        return -1;
     }
 
-    if ((cameras & CAMERA_A_SELECT) &&
-        configure_camera(map, GPIO0_I2C_OFFSET, "camera A (GPIO0)",
-                         &settings) < 0) {
+    if ((cameras & CAMERA_A) &&
+        configure_one_camera(map, GPIO0_I2C_OFFSET, "camera A (GPIO0)",
+                             settings) < 0) {
         failed = 1;
     }
-    if ((cameras & CAMERA_B_SELECT) &&
-        configure_camera(map, GPIO1_I2C_OFFSET, "camera B (GPIO1)",
-                         &settings) < 0) {
+    if ((cameras & CAMERA_B) &&
+        configure_one_camera(map, GPIO1_I2C_OFFSET, "camera B (GPIO1)",
+                             settings) < 0) {
         failed = 1;
     }
 
-    munmap(map, LW_BRIDGE_SPAN);
+    munmap(map, DE1_LW_BRIDGE_SPAN);
     close(fd);
-
-    return failed ? 1 : 0;
+    return failed ? -1 : 0;
 }

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #define LINE_LEN 256
 #define NAME_LEN 256
@@ -102,6 +103,7 @@ int main(int argc, char **argv)
         out_dir = argv[2];
         if (mkdir(out_dir, 0777) < 0) {
             struct stat st;
+
             if (stat(out_dir, &st) < 0 || !S_ISDIR(st.st_mode)) {
                 perror("mkdir output_dir");
                 return 1;
@@ -166,5 +168,11 @@ int main(int argc, char **argv)
 
     fclose(log);
     printf("decoded %u frame(s)\n", frames);
+
+    if (frames > 0 && unlink(log_path) < 0) {
+        perror("unlink log");
+        return 1;
+    }
+
     return 0;
 }

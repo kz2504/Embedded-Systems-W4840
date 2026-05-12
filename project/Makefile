@@ -1,71 +1,38 @@
-TARGETS := ov7670_i2c_probe imgproc_scan_control imgproc_capture_pgm imgproc_moments_30fps
-ARGS ?=
-CAM ?= A
-GAIN ?=
-AGC ?=
-AEC ?=
-EXPOSURE ?=
-CEILING ?=
-THRESH ?= 0
-THRESH_A ?= $(THRESH)
-THRESH_B ?= $(THRESH)
+TARGET := stereo
+HOST_TARGET := serial_frame_decode
 
-RUN_ARGS := $(ARGS)
-ifneq ($(GAIN),)
-RUN_ARGS += gain=$(GAIN)
-endif
-ifneq ($(AGC),)
-RUN_ARGS += agc=$(AGC)
-endif
-ifneq ($(AEC),)
-RUN_ARGS += aec=$(AEC)
-endif
-ifneq ($(EXPOSURE),)
-RUN_ARGS += exposure=$(EXPOSURE)
-endif
-ifneq ($(CEILING),)
-RUN_ARGS += ceiling=$(CEILING)
-endif
+SRCS := $(wildcard src/*.c)
+OBJS := $(patsubst src/%.c,build/%.o,$(SRCS))
 
 ifeq ($(origin CC),default)
 CC := $(CROSS_COMPILE)gcc
 endif
 
+CPPFLAGS ?=
+CPPFLAGS += -Iinclude
 CFLAGS ?= -O2 -Wall -Wextra -std=c11
+LDLIBS ?= -lm
 
-.PHONY: all run scan-control capture serial-capture moments host-decode clean
+.PHONY: all run host-decode clean
 
-all: $(TARGETS)
+all: $(TARGET)
 
-ov7670_i2c_probe: ov7670_i2c_probe.c
-	$(CC) $(CFLAGS) -o $@ $<
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
-imgproc_scan_control: imgproc_scan_control.c
-	$(CC) $(CFLAGS) -o $@ $<
+build/%.o: src/%.c | build
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
 
-imgproc_capture_pgm: imgproc_capture_pgm.c
-	$(CC) $(CFLAGS) -o $@ $<
+build:
+	mkdir -p build
 
-imgproc_moments_30fps: imgproc_moments_30fps.c
-	$(CC) $(CFLAGS) -o $@ $<
+run: $(TARGET)
+	./$(TARGET)
 
-run: ov7670_i2c_probe
-	./ov7670_i2c_probe $(CAM) $(RUN_ARGS)
+host-decode: $(HOST_TARGET)
 
-scan-control: imgproc_scan_control
-	./imgproc_scan_control
-
-capture: imgproc_capture_pgm
-	./imgproc_capture_pgm $(CAM) $(ARGS)
-
-serial-capture: imgproc_capture_pgm
-	./imgproc_capture_pgm $(CAM) --serial
-
-moments: imgproc_moments_30fps
-	./imgproc_moments_30fps $(THRESH_A) $(THRESH_B)
-
-host-decode: serial_frame_decode.c
-	$(CC) $(CFLAGS) -o serial_frame_decode serial_frame_decode.c
+$(HOST_TARGET): tools/serial_frame_decode.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 clean:
-	rm -f $(TARGETS) serial_frame_decode
+	rm -rf build $(TARGET) $(HOST_TARGET)

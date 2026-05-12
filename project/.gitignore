@@ -1,0 +1,9 @@
+.DS_Store
+build/
+stereo
+serial_frame_decode
+screenlog.*
+hardcopy.*
+decoded_frames/
+frame_cam*.pgm
+*.o
