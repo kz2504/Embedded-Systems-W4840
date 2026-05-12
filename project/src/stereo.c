@@ -7,8 +7,7 @@
 #define DEFAULT_AGC 0
 #define DEFAULT_AEC 1
 #define DEFAULT_EXPOSURE 0x0100u
-#define DEFAULT_GAIN_A 0x40u
-#define DEFAULT_GAIN_B 0x80u
+#define DEFAULT_GAIN 0xa0u
 
 void camera_settings_default(camera_settings_t *settings)
 {
@@ -18,7 +17,8 @@ void camera_settings_default(camera_settings_t *settings)
 void camera_settings_default_for(camera_select_t camera,
                                  camera_settings_t *settings)
 {
-    settings->gain = camera == CAMERA_B ? DEFAULT_GAIN_B : DEFAULT_GAIN_A;
+    (void)camera;
+    settings->gain = DEFAULT_GAIN;
     settings->exposure = DEFAULT_EXPOSURE;
     settings->gain_ceiling = 0;
     settings->agc = DEFAULT_AGC;

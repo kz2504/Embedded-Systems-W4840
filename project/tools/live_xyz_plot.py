@@ -84,12 +84,22 @@ def equalize_axes(ax, xs, ys, zs):
     ax.set_zlim(centers[2] - radius, centers[2] + radius)
 
 
+def set_fixed_axes(ax, axis_range):
+    radius = max(axis_range, 0.1)
+
+    ax.set_xlim(-radius, radius)
+    ax.set_ylim(-radius, radius)
+    ax.set_zlim(-radius, radius)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Plot live xyz runtime output from a GNU screen log."
     )
     parser.add_argument("--seconds", type=float, default=5.0)
     parser.add_argument("--interval-ms", type=int, default=100)
+    parser.add_argument("--range", type=float, default=1.0)
+    parser.add_argument("--autoscale", action="store_true")
     args = parser.parse_args()
 
     try:
@@ -120,6 +130,8 @@ def main():
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     ax.set_zlabel("Z")
+    if not args.autoscale:
+        set_fixed_axes(ax, args.range)
     ax.set_title(f"tailing {source_label}")
 
     def update(_frame):
@@ -145,7 +157,8 @@ def main():
         line.set_3d_properties(zs)
         current.remove()
         current = ax.scatter([xs[-1]], [ys[-1]], [zs[-1]], s=45)
-        equalize_axes(ax, xs, ys, zs)
+        if args.autoscale:
+            equalize_axes(ax, xs, ys, zs)
         ax.set_title(
             f"{source_label}  xyz=({xs[-1]:.3f}, {ys[-1]:.3f}, {zs[-1]:.3f})"
         )
