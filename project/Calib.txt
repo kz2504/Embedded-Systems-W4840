@@ -6,3 +6,5 @@ pkg-config --modversion opencv4
 
 pkg-config --modversion opencv
 
+sudo apt-get install libopencv-dev
+
