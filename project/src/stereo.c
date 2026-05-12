@@ -8,7 +8,7 @@
 #define DEFAULT_AEC 1
 #define DEFAULT_EXPOSURE 0x0100u
 #define DEFAULT_GAIN_A 0x40u
-#define DEFAULT_GAIN_B 0x60u
+#define DEFAULT_GAIN_B 0x80u
 
 void camera_settings_default(camera_settings_t *settings)
 {
