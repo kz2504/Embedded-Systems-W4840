@@ -7,3 +7,4 @@ hardcopy.*
 decoded_frames/
 frame_cam*.pgm
 *.o
+__pycache__/

@@ -13,7 +13,6 @@
 #include <string.h>
 #include <sys/select.h>
 #include <termios.h>
-#include <time.h>
 #include <unistd.h>
 
 #define CALIBRATION_FILE "stereo_projection.txt"
@@ -21,7 +20,6 @@
 #define MIN_FUNDAMENTAL_POINTS 8
 #define LINE_LEN 256
 #define MAX_ARGS 24
-#define RUNTIME_PERIOD_MS 500
 #define DEFAULT_MIN_AREA 10u
 #define DEFAULT_THRESHOLD 0x0au
 
@@ -481,8 +479,6 @@ static int log_scale_point(app_state_t *state, const double raw[3],
 static int runtime_mode(app_state_t *state)
 {
     struct termios old_term;
-    struct timespec last_print = {0, 0};
-    int have_last_print = 0;
     double raw[3] = {0.0, 0.0, 0.0};
     double xyz[3] = {0.0, 0.0, 0.0};
     int have_point = 0;
@@ -500,7 +496,6 @@ static int runtime_mode(app_state_t *state)
     }
 
     for (;;) {
-        struct timespec now;
         int valid_read = current_raw_point(state, raw);
         int key;
 
@@ -508,19 +503,9 @@ static int runtime_mode(app_state_t *state)
             projection_apply_transform(raw, state->origin, state->origin_set,
                                        state->floor_rot, state->scale, xyz);
             have_point = 1;
-        }
-
-        clock_gettime(CLOCK_MONOTONIC, &now);
-        if (have_point &&
-            (!have_last_print ||
-             (now.tv_sec - last_print.tv_sec) * 1000 +
-                     (now.tv_nsec - last_print.tv_nsec) / 1000000 >=
-                 RUNTIME_PERIOD_MS)) {
             printf("\rxyz = %.4f, %.4f, %.4f        ",
                    xyz[0], xyz[1], xyz[2]);
             fflush(stdout);
-            last_print = now;
-            have_last_print = 1;
         }
 
         key = read_key_timeout_ms(1);

@@ -1,5 +1,5 @@
 TARGET := serial_frame_decode
-LOG ?= screenlog.0
+SCREENLOG := screenlog.0
 OUT ?= decoded_frames
 PYTHON ?= python3
 
@@ -15,10 +15,10 @@ $(TARGET): tools/serial_frame_decode.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 decode: $(TARGET)
-	./$(TARGET) $(LOG) $(OUT)
+	./$(TARGET) $(SCREENLOG) $(OUT)
 
 plot:
-	$(PYTHON) tools/live_xyz_plot.py $(LOG)
+	$(PYTHON) tools/live_xyz_plot.py
 
 clean:
 	rm -f $(TARGET)
