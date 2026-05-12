@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -347,27 +346,6 @@ int camera_capture_frame(camera_select_t camera, unsigned char *pixels)
     return ret;
 }
 
-int camera_save_pgm(const char *path, const unsigned char *pixels)
-{
-    FILE *out = fopen(path, "wb");
-
-    if (!out) {
-        perror("fopen output");
-        return -1;
-    }
-
-    fprintf(out, "P5\n%u %u\n255\n", FRAME_WIDTH, FRAME_HEIGHT);
-
-    if (fwrite(pixels, 1, FRAME_PIXELS, out) != FRAME_PIXELS) {
-        perror("write output");
-        fclose(out);
-        return -1;
-    }
-
-    fclose(out);
-    return 0;
-}
-
 static void base64_write(FILE *out, const unsigned char *data, size_t len)
 {
     unsigned line = 0;
@@ -399,53 +377,6 @@ static void base64_write(FILE *out, const unsigned char *data, size_t len)
     if (line) {
         fputc('\n', out);
     }
-}
-
-int camera_capture_save(camera_select_t camera, const char *out_dir,
-                        char *path, size_t path_len)
-{
-    long run_time = (long)time(NULL);
-    long pid = (long)getpid();
-    unsigned char *pixels = malloc(FRAME_PIXELS);
-    int n;
-
-    if (!pixels) {
-        perror("malloc pixels");
-        return -1;
-    }
-
-    if (mkdir(out_dir, 0777) < 0) {
-        struct stat st;
-
-        if (stat(out_dir, &st) < 0 || !S_ISDIR(st.st_mode)) {
-            perror("mkdir output_dir");
-            free(pixels);
-            return -1;
-        }
-    }
-
-    n = snprintf(path, path_len, "%s/frame_cam%c_%ld_%ld.pgm",
-                 out_dir, camera_letter(camera), run_time, pid);
-    if (n < 0 || (size_t)n >= path_len) {
-        fprintf(stderr, "output filename too long\n");
-        free(pixels);
-        return -1;
-    }
-
-    if (camera_capture_frame(camera, pixels) < 0) {
-        free(pixels);
-        return -1;
-    }
-
-    printf("capture done; writing %s\n", path);
-    if (camera_save_pgm(path, pixels) < 0) {
-        free(pixels);
-        return -1;
-    }
-
-    printf("wrote %u x %u grayscale PGM: %s\n", FRAME_WIDTH, FRAME_HEIGHT, path);
-    free(pixels);
-    return 0;
 }
 
 int camera_capture_serial(camera_select_t camera, FILE *out)

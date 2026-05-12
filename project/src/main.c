@@ -672,20 +672,16 @@ static int command_config(app_state_t *state, int argc, char **argv)
 static int command_capture(int argc, char **argv)
 {
     camera_select_t camera = CAMERA_A;
-    const char *out_dir = ".";
-    char path[LINE_LEN];
     int argi = 0;
 
     if (argi < argc && camera_parse_single(argv[argi], &camera) == 0) {
         argi++;
     }
-    if (argi < argc) {
-        out_dir = argv[argi++];
-    }
     if (argi != argc) {
+        fprintf(stderr, "usage: capture [A|B]\n");
         return -1;
     }
-    return camera_capture_save(camera, out_dir, path, sizeof(path));
+    return camera_capture_serial(camera, stdout);
 }
 
 static void print_help(void)
@@ -693,7 +689,7 @@ static void print_help(void)
     printf("commands:\n");
     printf("  config [A|B|both] [gain=...] [agc=...] [aec=...] [exposure=...]\n");
     printf("         [threshold=...] [thresholdA=...] [thresholdB=...] [minarea=...]\n");
-    printf("  capture [A|B] [output_dir]\n");
+    printf("  capture [A|B]       emit one serial frame block\n");
     printf("  debug              stream area/u/v/centroid debug output\n");
     printf("  calibrate          enter correspondence logging mode\n");
     printf("  runtime            enter triangulation mode\n");
