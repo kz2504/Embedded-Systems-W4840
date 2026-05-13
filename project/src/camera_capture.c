@@ -452,7 +452,7 @@ int camera_debug_stream(unsigned print_every)
 {
     volatile uint32_t *regs;
     int fd;
-    struct timespec last_print;
+    struct timespec last_print = {0, 0};
     int have_last_print = 0;
     int fresh_a = 0;
     int fresh_b = 0;
