@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 
-import argparse
 import os
 import re
 import sys
 import time
 from collections import deque
 
-
 SCREENLOG = "screenlog.0"
+PLOT_SECONDS = 10.0
+UPDATE_INTERVAL_MS = 100
+FIXED_RANGE = 100.0
+AUTOSCALE = False
 
+FLOAT_RE = rb"[-+]?(?:(?:\d+\.\d*|\.\d+)(?:[eE][-+]?\d+)?|\d+[eE][-+]?\d+)"
 XYZ_RE = re.compile(
     rb"xyz\s*=\s*"
-    rb"([-+]?\d+(?:\.\d*)?(?:[eE][-+]?\d+)?),\s*"
-    rb"([-+]?\d+(?:\.\d*)?(?:[eE][-+]?\d+)?),\s*"
-    rb"([-+]?\d+(?:\.\d*)?(?:[eE][-+]?\d+)?)"
+    rb"(" + FLOAT_RE + rb"),\s*"
+    rb"(" + FLOAT_RE + rb"),\s*"
+    rb"(" + FLOAT_RE + rb")"
 )
 
 
@@ -28,16 +31,19 @@ class PointParser:
 
         data = self.buffer + chunk
         points = []
-        last_end = -1
+        records = re.split(rb"[\r\n]", data)
 
-        for match in XYZ_RE.finditer(data):
-            points.append(tuple(float(match.group(i)) for i in range(1, 4)))
-            last_end = match.end()
-
-        if last_end >= 0:
-            self.buffer = data[last_end:][-1024:]
+        if data[-1:] in (b"\r", b"\n"):
+            complete_records = records
+            self.buffer = b""
         else:
-            self.buffer = data[-1024:]
+            complete_records = records[:-1]
+            self.buffer = records[-1][-1024:]
+
+        for record in complete_records:
+            match = XYZ_RE.search(record)
+            if match:
+                points.append(tuple(float(match.group(i)) for i in range(1, 4)))
 
         return points
 
@@ -73,6 +79,18 @@ class ScreenlogTail:
         return self.parser.feed(chunk)
 
 
+def find_screenlog_path():
+    if os.path.exists(SCREENLOG):
+        return SCREENLOG
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    repo_root_log = os.path.join(os.path.dirname(script_dir), SCREENLOG)
+    if os.path.exists(repo_root_log):
+        return repo_root_log
+
+    return SCREENLOG
+
+
 def equalize_axes(ax, xs, ys, zs):
     mins = [min(xs), min(ys), min(zs)]
     maxs = [max(xs), max(ys), max(zs)]
@@ -93,15 +111,6 @@ def set_fixed_axes(ax, axis_range):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Plot live xyz runtime output from a GNU screen log."
-    )
-    parser.add_argument("--seconds", type=float, default=5.0)
-    parser.add_argument("--interval-ms", type=int, default=100)
-    parser.add_argument("--range", type=float, default=1.0)
-    parser.add_argument("--autoscale", action="store_true")
-    args = parser.parse_args()
-
     try:
         import matplotlib.pyplot as plt
         from matplotlib.animation import FuncAnimation
@@ -110,8 +119,9 @@ def main():
               file=sys.stderr)
         return 1
 
-    tail = ScreenlogTail(SCREENLOG, from_start=True)
-    source_label = SCREENLOG
+    log_path = find_screenlog_path()
+    tail = ScreenlogTail(log_path, from_start=True)
+    source_label = log_path
     points = deque()
 
     fig = plt.figure("stereo live xyz")
@@ -122,9 +132,9 @@ def main():
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     ax.set_zlabel("Z")
-    if not args.autoscale:
-        set_fixed_axes(ax, args.range)
-    ax.set_title(f"tailing {source_label}")
+    if not AUTOSCALE:
+        set_fixed_axes(ax, FIXED_RANGE)
+    ax.set_title(f"Visualization")
 
     def update(_frame):
         nonlocal current
@@ -133,7 +143,7 @@ def main():
         for point in tail.poll():
             points.append((now, point))
 
-        cutoff = now - max(args.seconds, 0.1)
+        cutoff = now - max(PLOT_SECONDS, 0.1)
         while points and points[0][0] < cutoff:
             points.popleft()
 
@@ -149,7 +159,7 @@ def main():
         line.set_3d_properties(zs)
         current.remove()
         current = ax.scatter([xs[-1]], [ys[-1]], [zs[-1]], s=45)
-        if args.autoscale:
+        if AUTOSCALE:
             equalize_axes(ax, xs, ys, zs)
         ax.set_title(
             f"{source_label}  xyz=({xs[-1]:.3f}, {ys[-1]:.3f}, {zs[-1]:.3f})"
@@ -157,7 +167,7 @@ def main():
         return line, current
 
     animation = FuncAnimation(
-        fig, update, interval=args.interval_ms, cache_frame_data=False
+        fig, update, interval=UPDATE_INTERVAL_MS, cache_frame_data=False
     )
     fig._stereo_animation = animation
     plt.show()
