@@ -7,7 +7,7 @@ import time
 from collections import deque
 
 SCREENLOG = "screenlog.0"
-PLOT_SECONDS = 10.0
+PLOT_SECONDS = 5.0
 UPDATE_INTERVAL_MS = 100
 FIXED_RANGE = 100.0
 AUTOSCALE = False

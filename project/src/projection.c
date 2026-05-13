@@ -267,7 +267,7 @@ void projection_apply_transform(const double raw[3], const double origin[3],
                                         rotated);
     out[0] = scale * rotated[0];
     out[1] = scale * rotated[1];
-    out[2] = -scale * rotated[2];
+    out[2] = scale * rotated[2];
 }
 
 void projection_apply_transform_unscaled(const double raw[3],

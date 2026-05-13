@@ -55,6 +55,7 @@ typedef struct {
     double scale_points[2][3];
     unsigned scale_count;
     double scale;
+    int flip_z;
 } app_state_t;
 
 static void app_state_init(app_state_t *state)
@@ -489,7 +490,7 @@ static int runtime_mode(app_state_t *state)
     }
 
     printf("\nRuntime triangulation mode\n");
-    printf("O set origin, F log floor point, S log scale point, X exit\n");
+    printf("O set origin, F log floor point, S log scale point, Z flip z, X exit\n");
 
     if (enable_raw(&old_term) < 0) {
         return -1;
@@ -502,6 +503,9 @@ static int runtime_mode(app_state_t *state)
         if (valid_read == 0) {
             projection_apply_transform(raw, state->origin, state->origin_set,
                                        state->floor_rot, state->scale, xyz);
+            if (state->flip_z) {
+                xyz[2] = -xyz[2];
+            }
             have_point = 1;
             printf("\rxyz = %.4f, %.4f, %.4f        ",
                    xyz[0], xyz[1], xyz[2]);
@@ -518,6 +522,12 @@ static int runtime_mode(app_state_t *state)
             restore_terminal(&old_term);
             printf("\nleaving runtime mode\n");
             return 0;
+        }
+
+        if (key == 'z') {
+            state->flip_z = !state->flip_z;
+            printf("\nflip z %s\n", state->flip_z ? "on" : "off");
+            continue;
         }
 
         if (!have_point) {
@@ -692,7 +702,7 @@ static void print_help(void)
     printf("  capture [A|B]       emit one serial frame block\n");
     printf("  debug              stream area/u/v/centroid output until keypress\n");
     printf("  calibrate          enter correspondence logging mode\n");
-    printf("  runtime            enter triangulation mode\n");
+    printf("  runtime            enter triangulation mode (Z toggles z sign)\n");
     printf("  status             show hardware status\n");
     printf("  quit\n");
 }
