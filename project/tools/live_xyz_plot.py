@@ -110,14 +110,6 @@ def main():
               file=sys.stderr)
         return 1
 
-    try:
-        os.remove(SCREENLOG)
-        print(f"deleted stale {SCREENLOG}")
-    except FileNotFoundError:
-        pass
-    except OSError as exc:
-        print(f"warning: could not delete {SCREENLOG}: {exc}", file=sys.stderr)
-
     tail = ScreenlogTail(SCREENLOG, from_start=True)
     source_label = SCREENLOG
     points = deque()

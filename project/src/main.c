@@ -670,13 +670,27 @@ static int command_capture(int argc, char **argv)
     return camera_capture_serial(camera, stdout);
 }
 
+static int command_debug(void)
+{
+    struct termios old_term;
+    int ret;
+
+    printf("Debug stream; press any key to stop.\n");
+    if (enable_raw(&old_term) < 0) {
+        return -1;
+    }
+    ret = camera_debug_stream(30);
+    restore_terminal(&old_term);
+    return ret;
+}
+
 static void print_help(void)
 {
     printf("commands:\n");
     printf("  config [A|B|both] [gain=...] [agc=...] [aec=...] [exposure=...]\n");
     printf("         [threshold=...] [thresholdA=...] [thresholdB=...] [minarea=...]\n");
     printf("  capture [A|B]       emit one serial frame block\n");
-    printf("  debug              stream area/u/v/centroid debug output\n");
+    printf("  debug              stream area/u/v/centroid output until keypress\n");
     printf("  calibrate          enter correspondence logging mode\n");
     printf("  runtime            enter triangulation mode\n");
     printf("  status             show hardware status\n");
@@ -693,7 +707,7 @@ static int prompt_initial_mode(app_state_t *state)
     }
 
     printf("Loaded %s.\n", CALIBRATION_FILE);
-    printf("Enter runtime triangulation or recalibrate? [r/c]: ");
+    printf("Enter runtime, recalibrate, or command menu? [r/c/x]: ");
     fflush(stdout);
     if (!fgets(line, sizeof(line), stdin)) {
         return -1;
@@ -701,7 +715,10 @@ static int prompt_initial_mode(app_state_t *state)
     if (tolower((unsigned char)line[0]) == 'c') {
         return calibration_mode(state);
     }
-    return runtime_mode(state);
+    if (tolower((unsigned char)line[0]) == 'r') {
+        return runtime_mode(state);
+    }
+    return 0;
 }
 
 int main(void)
@@ -750,7 +767,7 @@ int main(void)
         } else if (strcmp(argv[0], "capture") == 0) {
             command_capture(argc - 1, argv + 1);
         } else if (strcmp(argv[0], "debug") == 0) {
-            camera_debug_stream(30);
+            command_debug();
         } else if (strcmp(argv[0], "calibrate") == 0) {
             calibration_mode(&state);
         } else if (strcmp(argv[0], "runtime") == 0) {

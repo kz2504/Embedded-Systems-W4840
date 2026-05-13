@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/select.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -379,6 +380,23 @@ static void base64_write(FILE *out, const unsigned char *data, size_t len)
     }
 }
 
+static int debug_stop_requested(void)
+{
+    fd_set fds;
+    struct timeval tv = {0, 0};
+    unsigned char c;
+    int ret;
+
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds);
+    ret = select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
+    if (ret <= 0) {
+        return 0;
+    }
+
+    return read(STDIN_FILENO, &c, 1) == 1;
+}
+
 int camera_capture_serial(camera_select_t camera, FILE *out)
 {
     long run_time = (long)time(NULL);
@@ -455,6 +473,12 @@ int camera_debug_stream(unsigned print_every)
 
     while (1) {
         uint32_t done = regs[IMG_DONE];
+
+        if (debug_stop_requested()) {
+            unmap_regs(regs, fd);
+            printf("\nleaving debug stream\n");
+            return 0;
+        }
 
         if ((done & DONE_MOMENTS) == 0) {
             idle_polls++;
